@@ -1,13 +1,12 @@
 package org.src;
 
-import net.sf.samtools.AlignmentBlock;
 import net.sf.samtools.SAMRecord;
 
 import java.util.ArrayList;
 
 public class ReadPair {
     private SAMRecord fwRecord;
-    private String[] mmKEYWORDS = {"NM", "nM", "XM"};
+    private String[] MMKEYWORDS = {"NM", "nM", "XM"};
     private SAMRecord rwRecord;
 
     private Boolean frstrand;
@@ -19,16 +18,20 @@ public class ReadPair {
     }
 
     public int getmm() {
-        int mm = 0;
-        for (String mmKEYWORD : mmKEYWORDS) {
-            if (fwRecord.getAttribute(mmKEYWORD) != null) {
-                mm += (Integer) fwRecord.getAttribute(mmKEYWORD);
+        int rwmm = 0;
+        int fwmm = 0;
+//        if (fwRecord.getReadName().equals("10664907")) {
+//            System.out.println();
+//        }
+        for (String key : MMKEYWORDS) {
+            if (fwRecord.getAttribute(key) != null && (Integer) fwRecord.getAttribute(key) > fwmm) {
+                fwmm = (Integer) fwRecord.getAttribute(key);
             }
-            if (rwRecord.getAttribute(mmKEYWORD) != null) {
-                mm += (Integer) rwRecord.getAttribute(mmKEYWORD);
+            if (rwRecord.getAttribute(key) != null && (Integer) rwRecord.getAttribute(key) > rwmm) {
+                rwmm = (Integer) rwRecord.getAttribute(key);
             }
         }
-        return mm;
+        return fwmm + rwmm;
     }
 
     public int getclipping() {
