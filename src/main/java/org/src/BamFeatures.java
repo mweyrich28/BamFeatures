@@ -22,14 +22,14 @@ public class BamFeatures {
     }
 
     public void processBAM(Boolean frstrand) {
-        // TODO: strandnes
-        // TODO: Handle intergenic
-
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
         // track chromosome
         String currentChr = null;
         while (it.hasNext()) {
             SAMRecord current = it.next();
+            if(current.getReadName().equals("59604")) {
+//                System.out.println();
+            }
             if (currentChr == null) {
                 currentChr = current.getReferenceName();
             } else if (!currentChr.equals(current.getReferenceName())) {
@@ -45,13 +45,6 @@ public class BamFeatures {
                 continue;
             }
 
-            if (!preGeneCheck(current)) {
-                continue;
-            }
-
-
-            // check if gene is contained inbetween entries
-
             // track entries
             if (!seenEntries.containsKey(current.getReadName())) {
                 seenEntries.put(current.getReadName(), current);
@@ -62,14 +55,25 @@ public class BamFeatures {
             SAMRecord mate = seenEntries.get(current.getReadName());
             ReadPair pair;
 
-            if (mate.getFirstOfPairFlag()) {
+            if (mate.getAlignmentStart() < current.getAlignmentStart()) {
                 pair = new ReadPair(mate, current, frstrand);
             } else {
                 pair = new ReadPair(current, mate, frstrand);
             }
+
+            if (!pair.preGeneCheck(genome)){
+               continue;
+            }
+
+            int nsplit = pair.getNsplit();
+            if (nsplit == -1) {
+                System.out.println(current.getReadName() + "\tsplit-inconsistent:true");
+                continue;
+            }
             int mm = pair.getmm();
             int clipping = pair.getclipping();
-            System.out.println(current.getReadName() + "\tmm:" + mm + "\tclipping:" + clipping);
+            System.out.println(current.getReadName() + "\tmm:" + mm + "\tclipping:" + clipping + "\tnsplit:" + nsplit);
+//            System.out.println(current.getReadName() + "\tmm:" + mm + "\tclipping:" + clipping);
 //            System.out.println(current.getReadName() + "\tclipping:" + clipping);
 //            System.out.println(current.getReadName());
         }
@@ -93,7 +97,8 @@ public class BamFeatures {
         ArrayList<Gene> cgenes = genome.getIntervalTreeMap()
                 .get(record.getReferenceName())
                 .get(record.getReadNegativeStrandFlag())
-                .getIntervalsSpannedBy(record.getAlignmentStart(), record.getMateAlignmentStart(), new ArrayList<>());
+                .getIntervalsSpanning(record.getAlignmentStart(), record.getMateAlignmentStart(), new ArrayList<>());
         return igenes.isEmpty() || !cgenes.isEmpty();
     }
+
 }

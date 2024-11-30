@@ -125,7 +125,7 @@ public class Genome {
             // check if we hit a new gene
             if (mainComponents[2].equals("gene")) {
                 // update gene and continue with next gtf line
-                String bioType = mainComponents[1];
+                String bioType = FileUtils.parseGTFAttributes(attributeEntries, "gene_biotype");
                 int geneStart = Integer.parseInt(mainComponents[3]);
                 int geneEnd = Integer.parseInt(mainComponents[4]);
                 String geneName = FileUtils.parseGTFAttributes(attributeEntries, "gene_name");
