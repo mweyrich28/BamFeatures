@@ -57,62 +57,7 @@ public class BamFeatures {
 
             // at this point we already have the read pair
             SAMRecord mate = seenEntries.get(current.getReadName());
-            ReadPair pair;
-
-            if (frstrand == null) {
-                if (mate.getFirstOfPairFlag()) {
-                    pair = new ReadPair(mate, current, null);
-                } else {
-                    pair = new ReadPair(current, mate, null);
-                }
-            }
-            // fr +
-            else if (frstrand) {
-                // mate first
-                if (mate.getFirstOfPairFlag()) {
-                    // mate -
-                    if (mate.getReadNegativeStrandFlag()) {
-                        pair = new ReadPair(mate, current, false);
-                    }
-                    // mate +
-                    else {
-                        pair = new ReadPair(mate, current, true);
-                    }
-                } else {
-                    // curr -
-                    if (current.getReadNegativeStrandFlag()) {
-                        pair = new ReadPair(current, mate, false);
-                    }
-                    // curr +
-                    else {
-                        pair = new ReadPair(current, mate, true);
-                    }
-                }
-            }
-            // fr -
-            else {
-                if (mate.getFirstOfPairFlag()) {
-                    // mate -
-                    if (mate.getReadNegativeStrandFlag()) {
-                        pair = new ReadPair(mate, current, false);
-                    }
-                    // mate +
-                    else {
-                        pair = new ReadPair(mate, current, true);
-                    }
-                } else {
-                    // curr -
-                    if (current.getReadNegativeStrandFlag()) {
-                        pair = new ReadPair(current, mate, false);
-                    }
-                    // curr +
-                    else {
-                        pair = new ReadPair(current, mate, true);
-                    }
-                }
-            }
-
-
+            ReadPair pair = determineReadPair(mate, current, frstrand);
             StringBuilder sb = new StringBuilder(current.getReadName());
 
             int igenes = pair.getigenes(genome);
@@ -124,9 +69,6 @@ public class BamFeatures {
                     continue;
                 }
                 gdist = pair.getgdist(genome);
-                if (gdist == -1) {
-                    continue;
-                }
             }
 
 
@@ -144,10 +86,11 @@ public class BamFeatures {
             sb.append("\tnsplit:" + nsplit);
 
             if (cgenes == 0) {
-//                sb.append("\tgcount:0" + "\tgdist:" + gdist);
+                sb.append("\tgcount:0" + "\tgdist:" + gdist);
             } else {
-//                sb.append("\tgcount:" + cgenes);
+                sb.append("\tgcount:" + cgenes);
             }
+//            System.out.println(current.getReadName() + "\t");
             System.out.println(sb);
         }
     }
@@ -161,5 +104,62 @@ public class BamFeatures {
         boolean oppStrand = record.getReadNegativeStrandFlag() != record.getMateNegativeStrandFlag();
         boolean paired = record.getReadPairedFlag();
         return isPrimary && isMapped && isMateMapped && sameChr && oppStrand && paired;
+    }
+
+    public ReadPair determineReadPair(SAMRecord mate, SAMRecord current, Boolean frstrand) {
+        // bases on frstrand, getFirstOfPair and getNegativeStrandFlag determine
+        // correct readpair configuration
+        if (frstrand == null) {
+            if (mate.getFirstOfPairFlag()) {
+                return new ReadPair(mate, current, null);
+            } else {
+                return new ReadPair(current, mate, null);
+            }
+        }
+        // fr +
+        else if (frstrand) {
+            // mate first
+            if (mate.getFirstOfPairFlag()) {
+                // mate -
+                if (mate.getReadNegativeStrandFlag()) {
+                    return new ReadPair(mate, current, false);
+                }
+                // mate +
+                else {
+                    return new ReadPair(mate, current, true);
+                }
+            } else {
+                // curr -
+                if (current.getReadNegativeStrandFlag()) {
+                    return new ReadPair(current, mate, false);
+                }
+                // curr +
+                else {
+                    return new ReadPair(current, mate, true);
+                }
+            }
+        }
+        // fr -
+        else {
+            if (mate.getFirstOfPairFlag()) {
+                // mate -
+                if (mate.getReadNegativeStrandFlag()) {
+                    return new ReadPair(mate, current, false);
+                }
+                // mate +
+                else {
+                    return new ReadPair(mate, current, true);
+                }
+            } else {
+                // curr -
+                if (current.getReadNegativeStrandFlag()) {
+                    return new ReadPair(current, mate, false);
+                }
+                // curr +
+                else {
+                    return new ReadPair(current, mate, true);
+                }
+            }
+        }
     }
 }

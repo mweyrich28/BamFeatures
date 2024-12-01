@@ -149,11 +149,11 @@ public class ReadPair {
             }
         }
 
-        if (minDistance - 1 != 0) {
-            return minDistance - 1;
+        if(minDistance == Integer.MAX_VALUE) {
+            return 0;
         }
 
-        return -1;
+        return minDistance - 1;
     }
 }
 
