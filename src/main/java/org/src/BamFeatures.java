@@ -1,6 +1,7 @@
 package org.src;
 
 import net.sf.samtools.*;
+import org.w3c.dom.css.RGBColor;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,27 +10,30 @@ import java.util.*;
 public class BamFeatures {
 
     private final SAMFileReader samReader;
-    private final Iterator<SAMRecord> it;
     private final Genome genome;
 
     public BamFeatures(String pathToBAM, String pathToGTF, Boolean strandness) throws IOException {
         this.genome = new Genome();
-        this.genome.readGTF(pathToGTF);
+        this.genome.readGTF(pathToGTF, strandness);
         this.samReader = new SAMFileReader(new File(pathToBAM), false);
         this.samReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
-        this.it = samReader.iterator();
         processBAM(strandness);
     }
 
     public void processBAM(Boolean frstrand) {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
+        Iterator<SAMRecord> it = samReader.iterator();
+
+
         // track chromosome
         String currentChr = null;
         while (it.hasNext()) {
             SAMRecord current = it.next();
-            if(current.getReadName().equals("59604")) {
-//                System.out.println();
+
+            if (current.getReadName().equals("2")) {
+                System.out.println();
             }
+
             if (currentChr == null) {
                 currentChr = current.getReferenceName();
             } else if (!currentChr.equals(current.getReferenceName())) {
@@ -55,29 +59,99 @@ public class BamFeatures {
             SAMRecord mate = seenEntries.get(current.getReadName());
             ReadPair pair;
 
-            if (mate.getAlignmentStart() < current.getAlignmentStart()) {
-                pair = new ReadPair(mate, current, frstrand);
-            } else {
-                pair = new ReadPair(current, mate, frstrand);
+            if (frstrand == null) {
+                if (mate.getFirstOfPairFlag()) {
+                    pair = new ReadPair(mate, current, null);
+                } else {
+                    pair = new ReadPair(current, mate, null);
+                }
+            }
+            // fr +
+            else if (frstrand) {
+                // mate first
+                if (mate.getFirstOfPairFlag()) {
+                    // mate -
+                    if (mate.getReadNegativeStrandFlag()) {
+                        pair = new ReadPair(mate, current, false);
+                    }
+                    // mate +
+                    else {
+                        pair = new ReadPair(mate, current, true);
+                    }
+                } else {
+                    // curr -
+                    if (current.getReadNegativeStrandFlag()) {
+                        pair = new ReadPair(current, mate, false);
+                    }
+                    // curr +
+                    else {
+                        pair = new ReadPair(current, mate, true);
+                    }
+                }
+            }
+            // fr -
+            else {
+                if (mate.getFirstOfPairFlag()) {
+                    // mate -
+                    if (mate.getReadNegativeStrandFlag()) {
+                        pair = new ReadPair(mate, current, false);
+                    }
+                    // mate +
+                    else {
+                        pair = new ReadPair(mate, current, true);
+                    }
+                } else {
+                    // curr -
+                    if (current.getReadNegativeStrandFlag()) {
+                        pair = new ReadPair(current, mate, false);
+                    }
+                    // curr +
+                    else {
+                        pair = new ReadPair(current, mate, true);
+                    }
+                }
             }
 
-            if (!pair.preGeneCheck(genome)){
-               continue;
+
+            StringBuilder sb = new StringBuilder(current.getReadName());
+
+            int igenes = pair.getigenes(genome);
+            int cgenes = pair.getcgenes(genome);
+            int gdist = 0;
+
+            if (cgenes == 0) {
+                if (igenes > 0) {
+                    continue;
+                }
+                gdist = pair.getgdist(genome);
+                if (gdist == -1) {
+                    continue;
+                }
             }
+
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
-                System.out.println(current.getReadName() + "\tsplit-inconsistent:true");
+                sb.append("\tsplit-inconsistent:true");
+                System.out.println(sb);
                 continue;
             }
             int mm = pair.getmm();
             int clipping = pair.getclipping();
-            System.out.println(current.getReadName() + "\tmm:" + mm + "\tclipping:" + clipping + "\tnsplit:" + nsplit);
-//            System.out.println(current.getReadName() + "\tmm:" + mm + "\tclipping:" + clipping);
-//            System.out.println(current.getReadName() + "\tclipping:" + clipping);
-//            System.out.println(current.getReadName());
+
+            sb.append("\tmm:" + mm);
+            sb.append("\tclipping:" + clipping);
+            sb.append("\tnsplit:" + nsplit);
+
+            if (cgenes == 0) {
+//                sb.append("\tgcount:0" + "\tgdist:" + gdist);
+            } else {
+//                sb.append("\tgcount:" + cgenes);
+            }
+            System.out.println(sb);
         }
     }
+
     public boolean flagCheck(SAMRecord record) {
         // ignore based on flags
         boolean isPrimary = !record.getNotPrimaryAlignmentFlag();
@@ -88,17 +162,4 @@ public class BamFeatures {
         boolean paired = record.getReadPairedFlag();
         return isPrimary && isMapped && isMateMapped && sameChr && oppStrand && paired;
     }
-
-    public boolean preGeneCheck(SAMRecord record) {
-        ArrayList<Gene> igenes = genome.getIntervalTreeMap()
-                .get(record.getReferenceName())
-                .get(record.getReadNegativeStrandFlag())
-                .getIntervalsSpannedBy(record.getAlignmentStart(), record.getMateAlignmentStart(), new ArrayList<>());
-        ArrayList<Gene> cgenes = genome.getIntervalTreeMap()
-                .get(record.getReferenceName())
-                .get(record.getReadNegativeStrandFlag())
-                .getIntervalsSpanning(record.getAlignmentStart(), record.getMateAlignmentStart(), new ArrayList<>());
-        return igenes.isEmpty() || !cgenes.isEmpty();
-    }
-
 }

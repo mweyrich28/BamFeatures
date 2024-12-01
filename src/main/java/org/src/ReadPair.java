@@ -13,11 +13,17 @@ public class ReadPair {
     private SAMRecord rwRecord;
 
     private Boolean frstrand;
+    private int alignmentStart;
+    private int alignmentEnd;
+    private String chr;
 
     public ReadPair(SAMRecord fw, SAMRecord rw, Boolean frstrand) {
         this.fwRecord = fw;
         this.rwRecord = rw;
         this.frstrand = frstrand;
+        this.alignmentStart = Math.min(fw.getAlignmentStart(), rw.getAlignmentStart());
+        this.alignmentEnd = Math.max(fw.getAlignmentEnd(), rw.getAlignmentEnd());
+        this.chr = fw.getReferenceName();
     }
 
     public int getmm() {
@@ -46,15 +52,6 @@ public class ReadPair {
         if (fwRecord.getAlignmentBlocks().size() == 1 && rwRecord.getAlignmentBlocks().size() == 1) {
             return 0;
         }
-        // no overlap
-//        if (fwRecord.getAlignmentEnd() <= rwRecord.getAlignmentStart()) {
-//            // just return amount of introns
-//            return fwRecord.getAlignmentBlocks().size() - 1 + rwRecord.getAlignmentBlocks().size() - 1;
-//        }
-
-        if (this.fwRecord.getReadName().equals("59604")) {
-            System.out.println();
-        }
 
         // get overlap
         int overlapStart = Math.max(rwRecord.getAlignmentStart(), fwRecord.getAlignmentStart()) + 1;
@@ -69,35 +66,9 @@ public class ReadPair {
         HashSet<String> iFwRegions = new HashSet<>();
         HashSet<String> iRwRegions = new HashSet<>();
         HashSet<String> iRegions = new HashSet<>();
-        for (int i = 0; i < fwRecord.getAlignmentBlocks().size() - 1; i++) {
-            int iStart = fwRecord.getAlignmentBlocks().get(i).getReferenceStart() + fwRecord.getAlignmentBlocks().get(i).getLength();
-            int iEnd = fwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
-            if(iStart-iEnd == 0) {
-                continue;
-            }
-            iRegions.add(iStart + "-" + iEnd);
-            if ((iStart >= overlapStart && iStart <= overlapEnd) || (iEnd >= overlapStart && iEnd <= overlapEnd)) {
-                iFwRegions.add(iStart + "-" + iEnd);
-            }
-            if (iStart <= overlapStart && iEnd >= overlapEnd) {
-                iFwRegions.add(iStart + "-" + iEnd);
-            }
-        }
+        extractIntrons(overlapStart, overlapEnd, iFwRegions, iRegions, fwRecord);
 
-        for (int i = 0; i < rwRecord.getAlignmentBlocks().size() - 1; i++) {
-            int iStart = rwRecord.getAlignmentBlocks().get(i).getReferenceStart() + rwRecord.getAlignmentBlocks().get(i).getLength();
-            int iEnd = rwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
-            if(iStart-iEnd == 0) {
-                continue;
-            }
-            iRegions.add(iStart + "-" + iEnd);
-            if ((iStart >= overlapStart && iStart <= overlapEnd) || (iEnd >= overlapStart && iEnd <= overlapEnd)) {
-                iRwRegions.add(iStart + "-" + iEnd);
-            }
-            if (iStart <= overlapStart && iEnd >= overlapEnd) {
-                iRwRegions.add(iStart + "-" + iEnd);
-            }
-        }
+        extractIntrons(overlapStart, overlapEnd, iRwRegions, iRegions, rwRecord);
 
         // implied intron missing
         if (iRwRegions.size() != iFwRegions.size()) {
@@ -105,54 +76,84 @@ public class ReadPair {
         }
 
         // overlapping introns not matching
-        if(iRwRegions.containsAll(iFwRegions)) {
+        if (iRwRegions.containsAll(iFwRegions)) {
             return iRegions.size();
         }
         return -1;
     }
 
-    public String getGenes(Genome genome) {
-        ArrayList<Gene> cgenes;
-        ArrayList<Gene> igenes;
-        ArrayList<Gene> neighboursLeft;
-        ArrayList<Gene> neighboursRight;
-
-        // strand unspecific
-        if (this.frstrand == null) {
-            igenes = genome.getIntervalTreeMap()
-                    .get(fwRecord.getReferenceName())
-                    .get(fwRecord.getReadNegativeStrandFlag())
-                    .getIntervalsSpannedBy(fwRecord.getAlignmentStart(), fwRecord.getMateAlignmentStart(), new ArrayList<>());
-            cgenes = genome.getIntervalTreeMap()
-                    .get(fwRecord.getReferenceName())
-                    .get(fwRecord.getReadNegativeStrandFlag())
-                    .getIntervalsSpannedBy(fwRecord.getAlignmentStart(), fwRecord.getMateAlignmentStart(), new ArrayList<>());
-            if (!igenes.isEmpty() && cgenes.isEmpty()) {
-                return null;
+    public void extractIntrons(int overlapStart, int overlapEnd, HashSet<String> iRwRegions, HashSet<String> iRegions, SAMRecord rwRecord) {
+        // basically extracts introns and adds them to corresponding sets
+        for (int i = 0; i < rwRecord.getAlignmentBlocks().size() - 1; i++) {
+            int iStart = rwRecord.getAlignmentBlocks().get(i).getReferenceStart() + rwRecord.getAlignmentBlocks().get(i).getLength();
+            int iEnd = rwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
+            if (iStart - iEnd == 0) {
+                continue;
+            }
+            iRegions.add(iStart + "-" + iEnd);
+            if ((iStart >= overlapStart && iStart <= overlapEnd) || (iEnd >= overlapStart && iEnd <= overlapEnd)) {
+                iRwRegions.add(iStart + "-" + iEnd);
+            }
+            if (iStart <= overlapStart && iEnd >= overlapEnd) {
+                iRwRegions.add(iStart + "-" + iEnd);
             }
         }
-        // + experiment
-        else if (frstrand) {
-
-        }
-        // - experiment
-        else {
-
-        }
-        return null;
     }
 
 
-    public boolean preGeneCheck(Genome genome) {
-        ArrayList<Gene> igenes = genome.getIntervalTreeMap()
-                .get(fwRecord.getReferenceName())
-                .get(fwRecord.getReadNegativeStrandFlag())
-                .getIntervalsSpannedBy(fwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd(), new ArrayList<>());
-        ArrayList<Gene> cgenes = genome.getIntervalTreeMap()
-                .get(fwRecord.getReferenceName())
-                .get(fwRecord.getReadNegativeStrandFlag())
-                .getIntervalsSpanning(fwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd(), new ArrayList<>());
-        return igenes.isEmpty() || !cgenes.isEmpty();
+    public int getcgenes(Genome genome) {
+        ArrayList<Gene> cgenes;
+
+        cgenes = genome.getIntervalTreeMap()
+                .get(chr)
+                .get(frstrand)
+                .getIntervalsSpanning(alignmentStart, alignmentEnd, new ArrayList<>());
+        return cgenes.size();
+    }
+
+    public int getigenes(Genome genome) {
+        ArrayList<Gene> igenes;
+        igenes = genome.getIntervalTreeMap()
+                .get(chr)
+                .get(frstrand)
+                .getIntervalsSpannedBy(alignmentStart, alignmentEnd, new ArrayList<>());
+        return igenes.size();
+    }
+
+    public int getgdist(Genome genome) {
+        ArrayList<Gene> leftNeighbors;
+        ArrayList<Gene> rightNeighbors;
+
+        leftNeighbors = genome.getIntervalTreeMap()
+                .get(chr)
+                .get(frstrand)
+                .getIntervalsLeftNeighbor(alignmentStart, alignmentEnd, new ArrayList<>());
+        rightNeighbors = genome.getIntervalTreeMap()
+                .get(chr)
+                .get(frstrand)
+                .getIntervalsRightNeighbor(alignmentStart, alignmentEnd, new ArrayList<>());
+
+        // min(read start - gene end  or gene start - read end)
+        int minDistance = Integer.MAX_VALUE;
+        for (Gene gene : leftNeighbors) {
+            int distance = alignmentStart - gene.getEnd(); // read start - gene end
+            if (distance > 0) {
+                minDistance = Math.min(minDistance, distance);
+            }
+        }
+
+        for (Gene gene : rightNeighbors) {
+            int distance = gene.getStart() - alignmentEnd; // gene start - read end
+            if(distance > 0) {
+                minDistance = Math.min(minDistance, distance);
+            }
+        }
+
+        if (minDistance - 1 != 0) {
+            return minDistance - 1;
+        }
+
+        return -1;
     }
 }
 

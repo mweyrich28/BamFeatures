@@ -95,7 +95,7 @@ public class Genome {
         return genes;
     }
 
-    public void readGTF(String pathToGtf) throws IOException {
+    public void readGTF(String pathToGtf, Boolean frtrand) throws IOException {
         // sanity check vars
         Gene lastGene = null;
         int exonCounter = 0;
@@ -139,14 +139,23 @@ public class Genome {
                 // TODO: Keep for now
                 genes.put(lastGene.getGeneId(), lastGene);
 
-                // Here IntervalTree ds
+                // Here IntervalTree
+                // if frstrand == null → just create one tree
                 if (!intervalTreeMap.containsKey(chr)) {
                     intervalTreeMap.put(chr, new HashMap<>());
                 }
-                if (!intervalTreeMap.get(chr).containsKey(isNegative)) {
-                    intervalTreeMap.get(chr).put(isNegative, new IntervalTree<>());
+                if (frtrand == null) {
+                    if (!intervalTreeMap.get(chr).containsKey(null)) {
+                        intervalTreeMap.get(chr).put(null, new IntervalTree<>());
+                    }
+                    intervalTreeMap.get(chr).get(null).add(lastGene);
+
+                } else {
+                    if (!intervalTreeMap.get(chr).containsKey(isNegative)) {
+                        intervalTreeMap.get(chr).put(isNegative, new IntervalTree<>());
+                    }
+                    intervalTreeMap.get(chr).get(isNegative).add(lastGene);
                 }
-                intervalTreeMap.get(chr).get(isNegative).add(lastGene);
                 continue;
             }
 
