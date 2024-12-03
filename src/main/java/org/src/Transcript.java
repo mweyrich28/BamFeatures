@@ -1,14 +1,19 @@
 package org.src;
 
+import augmentedTree.IntervalTree;
+
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.TreeMap;
 
 public class Transcript {
     private final String transcriptId;
     private final int start;
     private final int stop;
-    private final ArrayList<Exon> exonList;
+    private final ArrayList<Exon> exonList = new ArrayList<>();
     private final String transcriptType;
+    private final IntervalTree<Exon> exonTree = new IntervalTree<Exon>();
 
     private String transcriptSeq; // patched together using its exons
 
@@ -17,12 +22,12 @@ public class Transcript {
         this.transcriptType = transcriptType;
         this.start = start;
         this.stop = stop;
-        this.exonList = new ArrayList<>();
     }
 
     public void addExon(int start, int end, int pos) {
         Exon exon = new Exon(start, end, pos, end-start + 1);
         exonList.add(exon);
+        exonTree.add(exon);
     }
 
     public String getTranscriptId() {
@@ -43,5 +48,9 @@ public class Transcript {
 
     public String getTranscriptSeq() {
         return this.transcriptSeq;
+    }
+
+    public IntervalTree<Exon> getExonTree() {
+        return exonTree;
     }
 }

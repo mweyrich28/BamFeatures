@@ -1,6 +1,7 @@
 package org.src;
 
 import augmentedTree.Interval;
+import augmentedTree.IntervalTree;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -11,6 +12,7 @@ public class Gene implements Interval {
     private final String geneId;
     private final ArrayList<Transcript> transcriptList;
     private final HashMap<String, Transcript> transcriptMap;
+    private final IntervalTree<Exon> exonTree;
     private final String geneName;
     private final String bioType;
     private final String chr;
@@ -29,6 +31,7 @@ public class Gene implements Interval {
         this.bioType = bioType;
         this.transcriptList = new ArrayList<>();
         this.transcriptMap = new HashMap<>();
+        this.exonTree = new IntervalTree<>();
     }
 
     public String getGeneId() {
@@ -91,5 +94,13 @@ public class Gene implements Interval {
     }
     public String getSeq() {
         return sequence;
+    }
+
+    public void addExon(int start, int end, int pos, String transcriptId) {
+        this.exonTree.add(new Exon(start, end, pos, transcriptId));
+    }
+
+    public IntervalTree<Exon> getExonTree() {
+        return exonTree;
     }
 }

@@ -71,6 +71,7 @@ public class BamFeatures {
                 gdist = pair.getgdist(genome);
             }
 
+            pair.annotateRegion(genome);
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {

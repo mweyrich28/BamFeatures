@@ -187,6 +187,8 @@ public class Genome {
                         end,
                         exonCounter
                 );
+                String currTranscript = lastGene.getLastTranscript().getTranscriptId();
+                lastGene.addExon(start, end, exonCounter, currTranscript);
                 exonCounter++;
             }
         }

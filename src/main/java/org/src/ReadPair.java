@@ -1,21 +1,24 @@
 package org.src;
 
+import augmentedTree.Interval;
 import augmentedTree.IntervalTree;
+import net.sf.samtools.AlignmentBlock;
 import net.sf.samtools.SAMRecord;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.Iterator;
+import java.util.TreeMap;
 
 public class ReadPair {
-    private SAMRecord fwRecord;
-    private String[] MMKEYWORDS = {"NM", "nM", "XM"};
-    private SAMRecord rwRecord;
+    private final SAMRecord fwRecord;
+    private final String[] MMKEYWORDS = {"NM", "nM", "XM"};
+    private final SAMRecord rwRecord;
 
-    private Boolean frstrand;
-    private int alignmentStart;
-    private int alignmentEnd;
-    private String chr;
+    private final Boolean frstrand;
+    private final int alignmentStart;
+    private final int alignmentEnd;
+    private final String chr;
+    private final ArrayList<Gene> containingGenes = new ArrayList<>();
 
     public ReadPair(SAMRecord fw, SAMRecord rw, Boolean frstrand) {
         this.fwRecord = fw;
@@ -82,32 +85,35 @@ public class ReadPair {
         return -1;
     }
 
-    public void extractIntrons(int overlapStart, int overlapEnd, HashSet<String> iRwRegions, HashSet<String> iRegions, SAMRecord rwRecord) {
+    public void extractIntrons(int overlapStart, int overlapEnd, HashSet<String> recordRegions, HashSet<String> iRegions, SAMRecord record) {
         // basically extracts introns and adds them to corresponding sets
-        for (int i = 0; i < rwRecord.getAlignmentBlocks().size() - 1; i++) {
-            int iStart = rwRecord.getAlignmentBlocks().get(i).getReferenceStart() + rwRecord.getAlignmentBlocks().get(i).getLength();
-            int iEnd = rwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
+        for (int i = 0; i < record.getAlignmentBlocks().size() - 1; i++) {
+            int iStart = record.getAlignmentBlocks().get(i).getReferenceStart() + record.getAlignmentBlocks().get(i).getLength();
+            int iEnd = record.getAlignmentBlocks().get(i + 1).getReferenceStart();
             if (iStart - iEnd == 0) {
                 continue;
             }
             iRegions.add(iStart + "-" + iEnd);
             if ((iStart >= overlapStart && iStart <= overlapEnd) || (iEnd >= overlapStart && iEnd <= overlapEnd)) {
-                iRwRegions.add(iStart + "-" + iEnd);
+                recordRegions.add(iStart + "-" + iEnd);
             }
             if (iStart <= overlapStart && iEnd >= overlapEnd) {
-                iRwRegions.add(iStart + "-" + iEnd);
+                recordRegions.add(iStart + "-" + iEnd);
             }
         }
     }
 
-
     public int getcgenes(Genome genome) {
         ArrayList<Gene> cgenes;
-
         cgenes = genome.getIntervalTreeMap()
                 .get(chr)
                 .get(frstrand)
                 .getIntervalsSpanning(alignmentStart, alignmentEnd, new ArrayList<>());
+
+        if (!cgenes.isEmpty()) {
+            // add genes for later
+            containingGenes.addAll(cgenes);
+        }
         return cgenes.size();
     }
 
@@ -155,73 +161,86 @@ public class ReadPair {
 
         return minDistance - 1;
     }
+
+    public String annotateRegion(Genome genome) {
+        StringBuilder entry = new StringBuilder();
+        for (Gene gene : containingGenes) {
+            IntervalTree<Exon> exonTree = gene.getExonTree();
+            int intronicCounter = 0;
+            int mergedCounter = 0;
+            int transcriptomicCounter = 0;
+            for (int i = 0; i < fwRecord.getAlignmentBlocks().size(); i++) {
+                AlignmentBlock block = fwRecord.getAlignmentBlocks().get(i);
+                int bStart = block.getReferenceStart();
+                int bEnd = block.getReferenceStart() + block.getLength();
+                ArrayList<Exon> regions = exonTree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
+                for (Exon region : regions) {
+                    //E #------------------#
+                    //B    #------------#
+                    if (region.getStart() < bStart && region.getStop() > bEnd) {
+                        if (fwRecord.getAlignmentBlocks().size() == 1) {
+                            // transcriptomic
+                            System.out.println();
+                        } else {
+
+                            System.out.println();
+                        }
+
+                    }
+                    //E #------------------#
+                    //B       #------------#
+                    else if (region.getStart() < bStart && region.getStop() == bEnd) {
+                        if (i == 0) {
+                           // this is fine
+                            System.out.println();
+                        }
+                        // merged
+                        System.out.println();
+
+                    }
+                    //E #------------------#
+                    //B #------------#
+                    else if (region.getStart() == bStart && region.getStop() > bEnd) {
+                        if (i == fwRecord.getAlignmentBlocks().size() - 1) {
+                            // this is fine
+                            System.out.println();
+                        }
+                        // merged
+                        System.out.println();
+
+                    }
+
+                    //E #------------------#
+                    //B #------------------#
+                    else if (region.getStart() == bStart && region.getStop() == bEnd) {
+                        // transcriptomic block
+                        System.out.println();
+                    }
+                    //E   #--------------#    | #----------#    |    #----------#
+                    //B #------------------#  |    #---------#  |  #---------#
+                    else {
+                        // intronic block
+                        System.out.println();
+                    }
+                }
+
+
+
+                System.out.println();
+            }
+            for (int i = 0; i < rwRecord.getAlignmentBlocks().size(); i++) {
+                AlignmentBlock block = rwRecord.getAlignmentBlocks().get(i);
+                int bStart = block.getReferenceStart();
+                int bEnd = block.getReferenceStart() + block.getLength();
+                ArrayList<Exon> regions = exonTree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
+
+
+                System.out.println();
+            }
+
+        }
+        return null;
+    }
 }
 
 
-//IntervalTree<Intron> intronTree = new IntervalTree<>();
-//HashSet<String> iRegions = new HashSet<>();
-//HashSet<Integer> iStartsFw = new HashSet<>();
-//HashSet<Integer> iEndsFw = new HashSet<>();
-//HashSet<Integer> iStartsRw = new HashSet<>();
-//HashSet<Integer> iEndsRw = new HashSet<>();
-//        for (int i = 0; i < fwRecord.getAlignmentBlocks().size() - 1; i++) {
-//int iStart = fwRecord.getAlignmentBlocks().get(i).getReferenceStart() + fwRecord.getAlignmentBlocks().get(i).getLength();
-//int iEnd = fwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
-//Intron intron = new Intron(iStart, iEnd, true);
-//            intronTree.add(intron);
-//            iRegions.add(iStart + "-" + iEnd);
-//            iStartsFw.add(iStart);
-//            iEndsFw.add(iEnd);
-//        }
-//
-//                for (int i = 0; i < rwRecord.getAlignmentBlocks().size() - 1; i++) {
-//int iStart = rwRecord.getAlignmentBlocks().get(i).getReferenceStart() + rwRecord.getAlignmentBlocks().get(i).getLength();
-//int iEnd = rwRecord.getAlignmentBlocks().get(i + 1).getReferenceStart();
-//Intron intron = new Intron(iStart, iEnd, false);
-//            intronTree.add(intron);
-//            iRegions.add(iStart + "-" + iEnd);
-//            iStartsRw.add(iStart);
-//            iEndsRw.add(iEnd);
-//        }
-//
-//int overlapStart = Math.max(rwRecord.getAlignmentStart(), fwRecord.getAlignmentStart()) + 1;
-//int overlapEnd = Math.min(rwRecord.getAlignmentEnd(), fwRecord.getAlignmentEnd());
-//
-//ArrayList<Intron> overlapIs = intronTree.getIntervalsSpannedBy(overlapStart, overlapEnd, new ArrayList<>());
-//
-//// I think I need an extra case
-//
-//// case: no introns in overlap
-//        if (overlapIs.isEmpty()) {
-//        // there might be introns peeking into overlap
-//        for (Intron intron : intronTree) {
-//        if ((intron.getStart() >= overlapStart && intron.getStart() <= overlapEnd) || (intron.getStop() <= overlapEnd && intron.getStop() >= overlapStart)) {
-//        return -1;
-//        }
-//        }
-//
-//        // check for remaining introns if they are peeking into overlap
-//        return iRegions.size();
-//        }
-//                // case: one read has intron in overlap, other one doesnt
-//                else if (overlapIs.size() == 1) {
-//        return -1;
-//        }
-//        // case check if all introns have same start / end
-//        // meaning: each inton has to have an equivalent partner in the other read
-//        else {
-//        for (int i = 0; i < overlapIs.size(); i++) {
-//Intron currentI = overlapIs.get(i);
-//                if (currentI.isFw()) {
-//        if (!(iEndsRw.contains(currentI.getStop()) && iStartsRw.contains(currentI.getStart()))) {
-//        return -1;
-//        }
-//        } else {
-//        if (!(iEndsFw.contains(currentI.getStop()) && iStartsFw.contains(currentI.getStart()))) {
-//        return -1;
-//        }
-//        }
-//        }
-//        }
-//
-//        return iRegions.size();

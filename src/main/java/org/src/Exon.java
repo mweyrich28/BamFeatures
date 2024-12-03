@@ -1,24 +1,35 @@
 package org.src;
 
-public class Exon {
+import augmentedTree.Interval;
+
+public class Exon implements Interval {
     private int length;
-    private final int genomicStart;
-    private final int genomicEnd;
+    private final int start;
+    private final int stop;
     private int pos;
+    private String transcriptId;
 
     public Exon(int start, int end, int pos, int length) {
         this.length = length;
-        this.genomicStart = start;
-        this.genomicEnd = end;
+        this.start = start;
+        this.stop = end;
         this.pos = pos;
     }
 
-    public int getGenomicStart() {
-        return genomicStart;
+    public Exon(int start, int end, int pos, String tId) {
+        this.start = start;
+        this.stop = end;
+        this.pos = pos;
+        this.length = stop - start + 1;
+        this.transcriptId = tId;
     }
 
-    public int getGenomicEnd() {
-        return genomicEnd;
+    public int getStart() {
+        return start;
+    }
+
+    public int getStop() {
+        return stop;
     }
 
     public int getPos() {
@@ -31,7 +42,7 @@ public class Exon {
 
     @Override
     public String toString() {
-        return this.genomicStart + "-" + this.genomicEnd + " " + "[" + this.pos +"] Length:" + this.length;
+        return this.transcriptId + " " + this.start + "-" + this.stop + " " + "[" + this.pos +"] Length:" + this.length;
     }
 
     public int getLength() {
