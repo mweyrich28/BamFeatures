@@ -23,16 +23,10 @@ public class BamFeatures {
     public void processBAM(Boolean frstrand) {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
-
-
         // track chromosome
         String currentChr = null;
         while (it.hasNext()) {
             SAMRecord current = it.next();
-
-            if (current.getReadName().equals("2")) {
-                System.out.println();
-            }
 
             if (currentChr == null) {
                 currentChr = current.getReferenceName();
@@ -60,6 +54,7 @@ public class BamFeatures {
             ReadPair pair = determineReadPair(mate, current, frstrand);
             StringBuilder sb = new StringBuilder(current.getReadName());
 
+
             int igenes = pair.getigenes(genome);
             int cgenes = pair.getcgenes(genome);
             int gdist = 0;
@@ -71,7 +66,7 @@ public class BamFeatures {
                 gdist = pair.getgdist(genome);
             }
 
-            pair.annotateRegion(genome);
+            String annotation = pair.annotateRegion();
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
@@ -88,10 +83,12 @@ public class BamFeatures {
 
             if (cgenes == 0) {
                 sb.append("\tgcount:0" + "\tgdist:" + gdist);
+                // get antsense
             } else {
                 sb.append("\tgcount:" + cgenes);
             }
 //            System.out.println(current.getReadName() + "\t");
+            sb.append("\t" + annotation);
             System.out.println(sb);
         }
     }

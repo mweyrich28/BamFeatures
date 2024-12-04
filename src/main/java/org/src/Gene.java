@@ -2,9 +2,11 @@ package org.src;
 
 import augmentedTree.Interval;
 import augmentedTree.IntervalTree;
+import net.sf.samtools.AlignmentBlock;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 
 public class Gene implements Interval {
     private final int start;
@@ -17,6 +19,7 @@ public class Gene implements Interval {
     private final String bioType;
     private final String chr;
     private final char strand;
+    private ArrayList<Exon> combinedExonList;
 
     private String sequence;
 
@@ -48,7 +51,7 @@ public class Gene implements Interval {
         }
     }
 
-    public void addTranscript(Transcript transcript){
+    public void addTranscript(Transcript transcript) {
         transcriptList.add(transcript);
         transcriptMap.put(transcript.getTranscriptId(), transcript);
     }
@@ -85,6 +88,7 @@ public class Gene implements Interval {
     public int getStop() {
         return end;
     }
+
     public int getEnd() {
         return end;
     }
@@ -92,6 +96,7 @@ public class Gene implements Interval {
     public char getStrand() {
         return strand;
     }
+
     public String getSeq() {
         return sequence;
     }
@@ -103,4 +108,63 @@ public class Gene implements Interval {
     public IntervalTree<Exon> getExonTree() {
         return exonTree;
     }
+
+    public String getBioType() {
+        return bioType;
+    }
+
+    public void initCombinedExonsList() {
+        this.combinedExonList = new ArrayList<>();
+        for (Transcript transcript : transcriptList) {
+            for (int i = 0; i < transcript.getExonList().size(); i++) {
+                Exon exon;
+                if (strand == '-') {
+                    exon = transcript.getExonList().get(transcript.getExonList().size() - 1 - i);
+                } else {
+                    exon = transcript.getExonList().get(i);
+                }
+                combinedExonList.add(exon);
+            }
+        }
+    }
+
+    public HashSet<String> cutCombRegVec(int x1, int x2, AlignmentBlock firstBlock, AlignmentBlock lastBlock) {
+        if (combinedExonList == null) {
+            initCombinedExonsList();
+        }
+
+        HashSet<String> cutRegions = new HashSet<>();
+        for (int i = 0; i < combinedExonList.size(); i++) {
+            Exon exon = combinedExonList.get(i);
+            int exonStart = exon.getStart();
+            int exonStop = exon.getStop();
+
+            // #---|-----|------#
+            //     x1----x2  → completely contained → add x1-x2 to set
+            if (x1 >= exon.getStart() && x1 <= exon.getStop() && x2 >= exon.getStart() && x2 <= exon.getStop()) {
+                cutRegions.add(x1 + "-" + x2);
+                break;
+            }
+            // #---------|----|-#
+            //           x1---#  → x1 contained → cut
+            else if (x1 >= exon.getStart() && x1 <= exon.getStop()) {
+                int s = Math.min(exon.getStop(), firstBlock.getReferenceStart() + firstBlock.getLength());
+                cutRegions.add(x1 + "-" + s);
+            }
+            // #----------------#
+            // |----------------|
+            else if (x1 <= exon.getStart() && x2 >= exon.getStop()) {
+                cutRegions.add((exon.getStart()) + "-" + (exon.getStop()));
+            }
+            // #-------|--------#
+            //   X-----x2  → x2 contained → cut
+            else if (x2 < exon.getStop()) {
+                int s = Math.max(exon.getStart(), lastBlock.getReferenceStart());
+                cutRegions.add(s + "-" + x2);
+                break;
+            }
+        }
+        return cutRegions;
+    }
 }
+

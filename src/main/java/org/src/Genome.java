@@ -172,7 +172,7 @@ public class Genome {
                 // add new transcript to current gene
                 int transcriptStart = Integer.parseInt(mainComponents[3]);
                 int transcriptStop = Integer.parseInt(mainComponents[4]);
-                Transcript transcript = new Transcript(transcriptId, mainComponents[2], transcriptStart, transcriptStop);
+                Transcript transcript = new Transcript(transcriptId, mainComponents[6].charAt(0), transcriptStart, transcriptStop);
                 lastGene.addTranscript(transcript);
 
                 // reset

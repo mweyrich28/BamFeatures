@@ -1,13 +1,10 @@
 package org.src;
 
-import augmentedTree.Interval;
-import augmentedTree.IntervalTree;
 import net.sf.samtools.AlignmentBlock;
 import net.sf.samtools.SAMRecord;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.TreeMap;
 
 public class ReadPair {
     private final SAMRecord fwRecord;
@@ -19,6 +16,8 @@ public class ReadPair {
     private final int alignmentEnd;
     private final String chr;
     private final ArrayList<Gene> containingGenes = new ArrayList<>();
+    private final HashSet<String> regionVecFw = new HashSet<>();
+    private final HashSet<String> regionVecRw = new HashSet<>();
 
     public ReadPair(SAMRecord fw, SAMRecord rw, Boolean frstrand) {
         this.fwRecord = fw;
@@ -27,6 +26,14 @@ public class ReadPair {
         this.alignmentStart = Math.min(fw.getAlignmentStart(), rw.getAlignmentStart());
         this.alignmentEnd = Math.max(fw.getAlignmentEnd(), rw.getAlignmentEnd());
         this.chr = fw.getReferenceName();
+
+        // init region vec
+        for (AlignmentBlock block : fwRecord.getAlignmentBlocks()) {
+            regionVecFw.add(block.getReferenceStart() + "-" + (block.getReferenceStart() + block.getLength() - 1));
+        }
+        for (AlignmentBlock block : rwRecord.getAlignmentBlocks()) {
+            regionVecRw.add(block.getReferenceStart() + "-" + (block.getReferenceStart() + block.getLength() - 1));
+        }
     }
 
     public int getmm() {
@@ -150,97 +157,93 @@ public class ReadPair {
 
         for (Gene gene : rightNeighbors) {
             int distance = gene.getStart() - alignmentEnd; // gene start - read end
-            if(distance > 0) {
+            if (distance > 0) {
                 minDistance = Math.min(minDistance, distance);
             }
         }
 
-        if(minDistance == Integer.MAX_VALUE) {
+        if (minDistance == Integer.MAX_VALUE) {
             return 0;
         }
 
         return minDistance - 1;
     }
 
-    public String annotateRegion(Genome genome) {
-        StringBuilder entry = new StringBuilder();
+    public String annotateRegion() {
         for (Gene gene : containingGenes) {
-            IntervalTree<Exon> exonTree = gene.getExonTree();
-            int intronicCounter = 0;
-            int mergedCounter = 0;
-            int transcriptomicCounter = 0;
-            for (int i = 0; i < fwRecord.getAlignmentBlocks().size(); i++) {
-                AlignmentBlock block = fwRecord.getAlignmentBlocks().get(i);
-                int bStart = block.getReferenceStart();
-                int bEnd = block.getReferenceStart() + block.getLength();
-                ArrayList<Exon> regions = exonTree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
-                for (Exon region : regions) {
-                    //E #------------------#
-                    //B    #------------#
-                    if (region.getStart() < bStart && region.getStop() > bEnd) {
-                        if (fwRecord.getAlignmentBlocks().size() == 1) {
-                            // transcriptomic
-                            System.out.println();
-                        } else {
-
-                            System.out.println();
-                        }
-
-                    }
-                    //E #------------------#
-                    //B       #------------#
-                    else if (region.getStart() < bStart && region.getStop() == bEnd) {
-                        if (i == 0) {
-                           // this is fine
-                            System.out.println();
-                        }
-                        // merged
-                        System.out.println();
-
-                    }
-                    //E #------------------#
-                    //B #------------#
-                    else if (region.getStart() == bStart && region.getStop() > bEnd) {
-                        if (i == fwRecord.getAlignmentBlocks().size() - 1) {
-                            // this is fine
-                            System.out.println();
-                        }
-                        // merged
-                        System.out.println();
-
-                    }
-
-                    //E #------------------#
-                    //B #------------------#
-                    else if (region.getStart() == bStart && region.getStop() == bEnd) {
-                        // transcriptomic block
-                        System.out.println();
-                    }
-                    //E   #--------------#    | #----------#    |    #----------#
-                    //B #------------------#  |    #---------#  |  #---------#
-                    else {
-                        // intronic block
-                        System.out.println();
-                    }
-                }
-
-
-
-                System.out.println();
-            }
-            for (int i = 0; i < rwRecord.getAlignmentBlocks().size(); i++) {
-                AlignmentBlock block = rwRecord.getAlignmentBlocks().get(i);
-                int bStart = block.getReferenceStart();
-                int bEnd = block.getReferenceStart() + block.getLength();
-                ArrayList<Exon> regions = exonTree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
-
-
-                System.out.println();
+            String transcriptomic = findTranscriptomic(gene);
+            if (transcriptomic != null) {
+                return transcriptomic;
             }
 
+
+            if (fwRecord.getReadName().equals("361947")) {
+                System.out.println();
+            }
+            String merged = findMerged(gene);
+            if (merged != null) {
+               return merged;
+            }
+            return gene.getGeneId() + "," + gene.getBioType() + ":INTRON";
         }
         return null;
     }
-}
 
+    public String findTranscriptomic(Gene gene) {
+        boolean foundTranscript = false;
+        StringBuilder transcriptomicSb = new StringBuilder(gene.getGeneId() + "," + gene.getBioType() + ":");
+        for (Transcript transcript : gene.getTranscriptList()) {
+            HashSet<String> trRegionsFw = transcript.cut(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd());
+            if (regionVecFw.equals(trRegionsFw)) {
+                HashSet<String> trRegionsRw = transcript.cut(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
+                if (regionVecRw.equals(trRegionsRw)) {
+                    if (foundTranscript) {
+                        transcriptomicSb.append("|" + transcript.getTranscriptId());
+                    } else {
+                        transcriptomicSb.append(transcript.getTranscriptId());
+                        foundTranscript = true;
+                    }
+                }
+            }
+        }
+        if (foundTranscript) {
+            return transcriptomicSb.toString();
+        } else {
+            return null;
+        }
+    }
+
+    public String findMerged(Gene gene) {
+        // check fwRead
+        boolean foundMergedFw = false;
+        boolean foundMergedRw = false;
+        HashSet<String> combRegVec = gene.cutCombRegVec(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd(), fwRecord.getAlignmentBlocks().getFirst(), fwRecord.getAlignmentBlocks().getLast());
+        // handle edge case where combRegVec.size() == 1 →
+        // cR  x1------------------------------------x2
+        // fR  x1----------#  #-----#     #----------x2
+        if (combRegVec.size() == 1) {
+            foundMergedFw = true;
+        }
+        else if (combRegVec.containsAll(regionVecFw)) {
+            foundMergedFw = true;
+        }
+
+        if(foundMergedFw) {
+            // if there is more than 1 transcript, get combRegVec of Gene
+            combRegVec = gene.cutCombRegVec(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd(), rwRecord.getAlignmentBlocks().getFirst(), rwRecord.getAlignmentBlocks().getLast());
+            if (combRegVec.size() == 1) {
+                foundMergedRw = true;
+            }
+            else if (combRegVec.containsAll(regionVecRw)) {
+                foundMergedRw = true;
+            }
+        }
+
+        if (foundMergedFw && foundMergedRw) {
+            return gene.getGeneId() + "," + gene.getBioType() + ":MERGED";
+        } else {
+            return null;
+        }
+    }
+}
 
