@@ -18,7 +18,7 @@ public class Gene implements Interval {
     private final String chr;
     private final char strand;
     private ArrayList<Exon> combinedExonList;
-    private IntervalTree<Region> meltedRegions;
+    private TreeSet<Region> meltedRegions;
 
     private String sequence;
 
@@ -38,16 +38,6 @@ public class Gene implements Interval {
 
     public String getGeneId() {
         return geneId;
-    }
-
-    public void invertTranscripts() {
-        for (int i = 0; i < transcriptList.size(); i++) {
-            Transcript currTranscript = transcriptList.get(i);
-            currTranscript.reversCdsList();
-            for (int j = 0; j < currTranscript.getExonList().size(); j++) {
-                currTranscript.getExonList().get(j).setPos(j);
-            }
-        }
     }
 
     public void addTranscript(Transcript transcript) {
@@ -127,44 +117,6 @@ public class Gene implements Interval {
         }
     }
 
-    public HashSet<String> cutCombRegVec(int x1, int x2, AlignmentBlock firstBlock, AlignmentBlock lastBlock) {
-        if (combinedExonList == null) {
-            initCombinedExonsList();
-        }
-
-        HashSet<String> cutRegions = new HashSet<>();
-        for (int i = 0; i < combinedExonList.size(); i++) {
-            Exon exon = combinedExonList.get(i);
-            int exonStart = exon.getStart();
-            int exonStop = exon.getStop();
-
-            // #---|-----|------#
-            //     x1----x2  → completely contained → add x1-x2 to set
-            if (x1 >= exon.getStart() && x1 <= exon.getStop() && x2 >= exon.getStart() && x2 <= exon.getStop()) {
-                cutRegions.add(x1 + "-" + x2);
-                break;
-            }
-            // #---------|----|-#
-            //           x1---#  → x1 contained → cut
-            else if (x1 >= exon.getStart() && x1 <= exon.getStop()) {
-                int s = Math.min(exon.getStop(), firstBlock.getReferenceStart() + firstBlock.getLength() - 1);
-                cutRegions.add(x1 + "-" + s);
-            }
-            // #----------------#
-            // |----------------|
-            else if (x1 <= exon.getStart() && x2 >= exon.getStop()) {
-                cutRegions.add((exon.getStart()) + "-" + (exon.getStop()));
-            }
-            // #-------|--------#
-            //   X-----x2  → x2 contained → cut
-            else if (x2 < exon.getStop()) {
-                int s = Math.max(exon.getStart(), lastBlock.getReferenceStart());
-                cutRegions.add(s + "-" + x2);
-            }
-        }
-        return cutRegions;
-    }
-
     public void melt() {
 
         ArrayList<Exon> allExons = new ArrayList<>();
@@ -173,7 +125,10 @@ public class Gene implements Interval {
         }
 
         Collections.sort(allExons, Comparator.comparingInt(Exon::getStart));
-        IntervalTree<Region> meltedRegions = new IntervalTree<>();
+        TreeSet<Region> meltedRegions = new TreeSet<>(
+                Comparator.comparingInt(Region::getStart)
+                        .thenComparingInt(Region::getStop)
+        );
 
 
         if (!allExons.isEmpty()) {
@@ -196,11 +151,11 @@ public class Gene implements Interval {
         this.meltedRegions = meltedRegions;
     }
 
-    public IntervalTree<Region> getMeltedRegions() {
+    public TreeSet<Region> getMeltedRegions() {
         if (this.meltedRegions == null) {
             melt();
         }
-        return meltedRegions;
+        return this.meltedRegions;
     }
 }
 

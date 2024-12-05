@@ -10,18 +10,18 @@ public class ReadPair {
     private final SAMRecord fwRecord;
     private final String[] MMKEYWORDS = {"NM", "nM", "XM"};
     private final SAMRecord rwRecord;
-
     private final Boolean frstrand;
     private final int alignmentStart;
     private final int alignmentEnd;
     private final String chr;
     private final ArrayList<Gene> containingGenes = new ArrayList<>();
-    private final HashSet<String> regionVecFw = new HashSet<>();
-    private final HashSet<String> regionVecRw = new HashSet<>();
+    private TreeSet<Region> regionVecFw = new TreeSet<>(Comparator.comparingInt(Region::getStart).thenComparingInt(Region::getStop));
+    private TreeSet<Region> regionVecRw = new TreeSet<>(Comparator.comparingInt(Region::getStart).thenComparingInt(Region::getStop));
     private int transcriptomicCount = 0;
     private int mergedCount = 0;
     private int intronCount = 0;
     private int gCount;
+    private TreeSet<Region> meltedBlocks;
 
     public ReadPair(SAMRecord fw, SAMRecord rw, Boolean frstrand) {
         this.fwRecord = fw;
@@ -30,15 +30,7 @@ public class ReadPair {
         this.alignmentStart = Math.min(fw.getAlignmentStart(), rw.getAlignmentStart());
         this.alignmentEnd = Math.max(fw.getAlignmentEnd(), rw.getAlignmentEnd());
         this.chr = fw.getReferenceName();
-
-        // init region vec
-        // TODO: merge here as well
-        for (AlignmentBlock block : fwRecord.getAlignmentBlocks()) {
-            regionVecFw.add(block.getReferenceStart() + "-" + (block.getReferenceStart() + block.getLength() - 1));
-        }
-        for (AlignmentBlock block : rwRecord.getAlignmentBlocks()) {
-            regionVecRw.add(block.getReferenceStart() + "-" + (block.getReferenceStart() + block.getLength() - 1));
-        }
+        melt();
     }
 
     public int getmm() {
@@ -223,10 +215,10 @@ public class ReadPair {
         }
 
         // priority
-        if (transcriptomicCount >= mergedCount && transcriptomicCount >= intronCount) {
+        if (transcriptomicCount != 0) {
             this.gCount = transcriptomicCount;
             return annotationTranscriptomic.toString();
-        } else if (mergedCount >= transcriptomicCount && mergedCount >= intronCount) {
+        } else if (mergedCount != 0) {
             this.gCount = mergedCount;
             return annotationMerged.toString();
         } else {
@@ -239,21 +231,35 @@ public class ReadPair {
         boolean foundTranscript = false;
         StringBuilder transcriptomicSb = new StringBuilder(gene.getGeneId() + "," + gene.getBioType() + ":");
         for (Transcript transcript : gene.getTranscriptList()) {
-            HashSet<String> trRegionsFw = transcript.cut(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd());
+//            HashSet<Region> trRegions = transcript.cut(alignmentStart, alignmentEnd);
+//            if (!trRegions.isEmpty() && meltedBlocks.equals(trRegions)) {
+//                if (foundTranscript) {
+//                    transcriptomicSb.append("," + transcript.getTranscriptId());
+//                } else {
+//                    transcriptomicSb.append(transcript.getTranscriptId());
+//                    foundTranscript = true;
+//                }
+//                continue;
+//            }
 
-            // if there are no regions stop
-            if (trRegionsFw.isEmpty()) {
+            ArrayList<Region> cutFwRegions = transcript.cut(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd());
+            if (cutFwRegions.isEmpty()) {
                 continue;
             }
-            if (trRegionsFw.containsAll(regionVecFw)) {
-                HashSet<String> trRegionsRw = transcript.cut(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
+            HashSet<Region> mergedFwRegions = transcript.meltRegions(cutFwRegions);
 
-                // if there are no regions stop (same as above but for rw)
-                if (trRegionsRw.isEmpty()) {
+            if (mergedFwRegions.equals(regionVecFw)) {
+                ArrayList<Region> cutRwRegions = transcript.cut(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
+                if (cutRwRegions.isEmpty()) {
                     continue;
                 }
-//                if (regionVecRw.containsAll(trRegionsRw) && trRegionsRw.containsAll(regionVecRw)) {
-                if (trRegionsRw.containsAll(regionVecRw)) {
+                HashSet<Region> mergedRwRegions = transcript.meltRegions(cutRwRegions);
+
+                // if there are no regions stop (same as above but for rw)
+                if (mergedRwRegions.isEmpty()) {
+                    continue;
+                }
+                if (mergedRwRegions.equals(regionVecRw)) {
                     if (foundTranscript) {
                         transcriptomicSb.append("," + transcript.getTranscriptId());
                     } else {
@@ -272,23 +278,22 @@ public class ReadPair {
 
     public String findMerged(Gene gene) {
         // check fwRead
-        IntervalTree<Exon> t = gene.getExonTree();
-        IntervalTree<Region> tree = gene.getMeltedRegions();
-        for (AlignmentBlock block : fwRecord.getAlignmentBlocks()) {
-            int bStart = block.getReferenceStart();
-            int bEnd = block.getReferenceStart() + block.getLength() - 1;
-            ArrayList<Region> intervals = tree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
-            if (intervals.isEmpty()) {
-                return null;
+        // TODO: fix treeset and iterate over reads combined merged alignment blocks
+        TreeSet<Region> mergedTranscriptome = gene.getMeltedRegions();
+        TreeSet<Region> mergedRead = this.meltedBlocks;
+
+        int count = 0;
+        for (Region region : mergedRead) {
+            for (Region transcriptRegion : mergedTranscriptome) {
+                if (transcriptRegion.contains(region)) {
+                    count++;
+                    break;
+                }
             }
         }
-        for (AlignmentBlock block : rwRecord.getAlignmentBlocks()) {
-            int bStart = block.getReferenceStart();
-            int bEnd = block.getReferenceStart() + block.getLength() - 1;
-            ArrayList<Region> intervals = tree.getIntervalsSpanning(bStart, bEnd, new ArrayList<>());
-            if (intervals.isEmpty()) {
-                return null;
-            }
+
+        if (!(count == mergedRead.size())) {
+            return null;
         }
         return gene.getGeneId() + "," + gene.getBioType() + ":MERGED";
     }
@@ -311,33 +316,52 @@ public class ReadPair {
         return !(cgenes.isEmpty());
     }
 
-    public String getPcrHash() {
+    public TreeSet<Region> getMeltedBlocks() {
+        return this.meltedBlocks;
+    }
+
+    public void melt() {
         ArrayList<AlignmentBlock> allBlocks = new ArrayList<>();
-        allBlocks.addAll(fwRecord.getAlignmentBlocks());
-        allBlocks.addAll(rwRecord.getAlignmentBlocks());
+        ArrayList<AlignmentBlock> fwBlocks = new ArrayList<>();
+        ArrayList<AlignmentBlock> rwBlocks = new ArrayList<>();
+        fwBlocks.addAll(fwRecord.getAlignmentBlocks());
+        rwBlocks.addAll(rwRecord.getAlignmentBlocks());
+        allBlocks.addAll(fwBlocks);
+        allBlocks.addAll(rwBlocks);
+        this.regionVecFw = meltRegion(fwBlocks);
+        this.regionVecRw = meltRegion(rwBlocks);
+        this.meltedBlocks = meltRegion(allBlocks);
+    }
+    public TreeSet<Region> meltRegion(ArrayList<AlignmentBlock> blocks) {
+        TreeSet<Region> melted = new TreeSet<>(
+                Comparator.comparingInt(Region::getStart)
+                        .thenComparingInt(Region::getStop)
+        );
+        if (blocks.size() == 1) {
+            melted.add(new Region(blocks.getFirst().getReferenceStart(), blocks.getFirst().getReferenceStart() + blocks.getFirst().getLength() - 1));
+            return melted;
+        }
+        Collections.sort(blocks, Comparator.comparingInt(AlignmentBlock::getReferenceStart));
+        AlignmentBlock first = blocks.getFirst();
+        Region current = new Region(first.getReferenceStart(), first.getReferenceStart() + first.getLength() - 1);
 
-        Collections.sort(allBlocks, Comparator.comparingInt(AlignmentBlock::getReferenceStart));
-        ArrayList<String> mergedRegions = new ArrayList<>();
+        for (int i = 1; i < blocks.size(); i++) {
+            AlignmentBlock block = blocks.get(i);
 
-
-        if (!allBlocks.isEmpty()) {
-            AlignmentBlock first = allBlocks.get(0);
-            Region current = new Region(first.getReferenceStart(), first.getReferenceStart() + first.getLength() - 1);
-
-            for (int i = 1; i < allBlocks.size(); i++) {
-                AlignmentBlock block = allBlocks.get(i);
-
-                if (block.getReferenceStart() <= current.getStop() + 1) {
-                    current.setStop(Math.max(current.getStop(), block.getReferenceStart() + block.getLength() - 1));
-                } else {
-                    mergedRegions.add(current.getStart() + "-" + current.getStop());
-                    current = new Region(block.getReferenceStart(), block.getReferenceStart() + block.getLength() - 1);
-                }
+            if (block.getReferenceStart() <= current.getStop() + 1) {
+                current.setStop(Math.max(current.getStop(), block.getReferenceStart() + block.getLength() - 1));
+            } else {
+                melted.add(current);
+                current = new Region(block.getReferenceStart(), block.getReferenceStart() + block.getLength() - 1);
             }
-
-            mergedRegions.add(current.getStart() + "-" + current.getStop());
         }
 
-        return String.join("|", mergedRegions);
+        // add last block
+        melted.add(current);
+        return melted;
+    }
+
+    public Boolean getFrstrand() {
+        return frstrand;
     }
 }

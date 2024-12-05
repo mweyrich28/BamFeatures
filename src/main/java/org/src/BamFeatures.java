@@ -1,5 +1,4 @@
 package org.src;
-
 import net.sf.samtools.*;
 
 import java.io.BufferedWriter;
@@ -8,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.TreeSet;
 
 public class BamFeatures {
 
@@ -23,7 +23,7 @@ public class BamFeatures {
 
     public void processBAM(Boolean frstrand, String outPath) throws IOException {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
-        HashMap<String, Integer> pcrIndex = new HashMap<>();
+        HashMap<Boolean, HashMap<TreeSet<Region>, Integer>> pcrIndex = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
         BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(new File(outPath)));
         // track chromosome
@@ -67,11 +67,9 @@ public class BamFeatures {
                 }
                 gdist = pair.getgdist(genome);
             }
-            if (mate.getReadName().equals("25466612")) {
+            if (mate.getReadName().equals("266378")) { // should be MERGED
                 System.out.println();
             }
-
-            // merge region vector of reads
 
             String annotation = pair.annotateRegion();
             // update count based on annotation
@@ -80,7 +78,7 @@ public class BamFeatures {
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
                 sb.append("\tsplit-inconsistent:true");
-                bufferedWriter.write(sb.toString() + "\n");
+                bufferedWriter.write(sb + "\n");
                 continue;
             }
             int mm = pair.getmm();
@@ -100,21 +98,23 @@ public class BamFeatures {
                 sb.append("\tgcount:" + cgenes);
                 sb.append("\t" + annotation);
             }
-//            System.out.println(current.getReadName() + "\t");
-//            System.out.println(sb);
 
-
-            String hash = pair.getPcrHash();
-            if (pcrIndex.containsKey(hash)) {
-                int last = pcrIndex.get(hash);
-                pcrIndex.put(hash, last + 1);
-                sb.append("\tpcrindex: " + (last + 1));
+            TreeSet<Region> regions = pair.getMeltedBlocks();
+            if (!pcrIndex.containsKey(pair.getFrstrand())) {
+                pcrIndex.put(pair.getFrstrand(), new HashMap<>());
+            }
+            HashMap<TreeSet<Region>, Integer> map = pcrIndex.get(pair.getFrstrand());
+            if (map.containsKey(regions)) {
+                int count = map.get(regions);
+                count++;
+                map.put(regions, count);
+                sb.append("\tpcrindex: " + count);
             } else {
-                pcrIndex.put(hash, 0);
+                map.put(regions, 0);
                 sb.append("\tpcrindex: " + 0);
             }
 
-            bufferedWriter.write(sb.toString() + "\n");
+            bufferedWriter.write(sb + "\n");
         }
         bufferedWriter.flush();
         bufferedWriter.close();
