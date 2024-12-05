@@ -1,11 +1,13 @@
 package org.src;
 
 import net.sf.samtools.*;
-import org.w3c.dom.css.RGBColor;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Iterator;
 
 public class BamFeatures {
 
@@ -17,12 +19,13 @@ public class BamFeatures {
         this.genome.readGTF(pathToGTF, strandness);
         this.samReader = new SAMFileReader(new File(pathToBAM), false);
         this.samReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
-        processBAM(strandness);
     }
 
-    public void processBAM(Boolean frstrand) {
+    public void processBAM(Boolean frstrand, String outPath) throws IOException {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
+        HashMap<String, Integer> pcrIndex = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(new File(outPath)));
         // track chromosome
         String currentChr = null;
         while (it.hasNext()) {
@@ -54,7 +57,6 @@ public class BamFeatures {
             ReadPair pair = determineReadPair(mate, current, frstrand);
             StringBuilder sb = new StringBuilder(current.getReadName());
 
-
             int igenes = pair.getigenes(genome);
             int cgenes = pair.getcgenes(genome);
             int gdist = 0;
@@ -65,13 +67,20 @@ public class BamFeatures {
                 }
                 gdist = pair.getgdist(genome);
             }
+            if (mate.getReadName().equals("25466612")) {
+                System.out.println();
+            }
+
+            // merge region vector of reads
 
             String annotation = pair.annotateRegion();
+            // update count based on annotation
+            cgenes = pair.getgCount();
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
                 sb.append("\tsplit-inconsistent:true");
-                System.out.println(sb);
+                bufferedWriter.write(sb.toString() + "\n");
                 continue;
             }
             int mm = pair.getmm();
@@ -83,14 +92,32 @@ public class BamFeatures {
 
             if (cgenes == 0) {
                 sb.append("\tgcount:0" + "\tgdist:" + gdist);
+                if (frstrand != null) {
+                    sb.append("\tantisense:" + pair.isAntisense(genome));
+                }
                 // get antsense
             } else {
                 sb.append("\tgcount:" + cgenes);
+                sb.append("\t" + annotation);
             }
 //            System.out.println(current.getReadName() + "\t");
-            sb.append("\t" + annotation);
-            System.out.println(sb);
+//            System.out.println(sb);
+
+
+            String hash = pair.getPcrHash();
+            if (pcrIndex.containsKey(hash)) {
+                int last = pcrIndex.get(hash);
+                pcrIndex.put(hash, last + 1);
+                sb.append("\tpcrindex: " + (last + 1));
+            } else {
+                pcrIndex.put(hash, 0);
+                sb.append("\tpcrindex: " + 0);
+            }
+
+            bufferedWriter.write(sb.toString() + "\n");
         }
+        bufferedWriter.flush();
+        bufferedWriter.close();
     }
 
     public boolean flagCheck(SAMRecord record) {

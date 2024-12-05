@@ -71,7 +71,7 @@ public class Transcript {
                cutRegions.add(x1 + "-" + exon.getStop());
             }
             else if (x1 <= exon.getStart() && x2 >= exon.getStop()) {
-                cutRegions.add((exon.getStart() + 1) + "-" + (exon.getStop() - 1));
+                cutRegions.add((exon.getStart()) + "-" + (exon.getStop()));
             }
             else if (x2 < exon.getStop()) {
                 cutRegions.add(exon.getStart() + "-" + x2);
