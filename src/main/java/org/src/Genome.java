@@ -85,6 +85,7 @@ public class Genome {
         this.VALID_CHROMOSOMES.add("XIV");
         this.VALID_CHROMOSOMES.add("XV");
         this.VALID_CHROMOSOMES.add("XVI");
+        this.VALID_CHROMOSOMES.add("MT");
     }
 
     public HashMap<String, HashMap<Boolean, IntervalTree<Gene>>> getIntervalTreeMap() {
@@ -187,8 +188,6 @@ public class Genome {
                         end,
                         exonCounter
                 );
-                String currTranscript = lastGene.getLastTranscript().getTranscriptId();
-                lastGene.addExon(start, end, exonCounter, currTranscript);
                 exonCounter++;
             }
         }

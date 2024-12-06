@@ -109,9 +109,6 @@ public class ReadPair {
 
     public int getcgenes(Genome genome) {
         ArrayList<Gene> cgenes;
-//        if (this.fwRecord.getReadName().equals("1112")) {
-//            System.out.println();
-//        }
         cgenes = genome.getIntervalTreeMap()
                 .get(chr)
                 .get(frstrand)
@@ -231,7 +228,7 @@ public class ReadPair {
         boolean foundTranscript = false;
         StringBuilder transcriptomicSb = new StringBuilder(gene.getGeneId() + "," + gene.getBioType() + ":");
         for (Transcript transcript : gene.getTranscriptList()) {
-//            HashSet<Region> trRegions = transcript.cut(alignmentStart, alignmentEnd);
+//            ArrayList<Region> trRegions = transcript.cut(alignmentStart, alignmentEnd);
 //            if (!trRegions.isEmpty() && meltedBlocks.equals(trRegions)) {
 //                if (foundTranscript) {
 //                    transcriptomicSb.append("," + transcript.getTranscriptId());
@@ -246,14 +243,17 @@ public class ReadPair {
             if (cutFwRegions.isEmpty()) {
                 continue;
             }
-            HashSet<Region> mergedFwRegions = transcript.meltRegions(cutFwRegions);
+            TreeSet<Region> mergedFwRegions = transcript.meltRegions(cutFwRegions);
 
+            // ckeck this case
+            // #----------------------------------# merged transc cut
+            // #-----------------#   #------------# fw
             if (mergedFwRegions.equals(regionVecFw)) {
                 ArrayList<Region> cutRwRegions = transcript.cut(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
                 if (cutRwRegions.isEmpty()) {
                     continue;
                 }
-                HashSet<Region> mergedRwRegions = transcript.meltRegions(cutRwRegions);
+                TreeSet<Region> mergedRwRegions = transcript.meltRegions(cutRwRegions);
 
                 // if there are no regions stop (same as above but for rw)
                 if (mergedRwRegions.isEmpty()) {
@@ -347,6 +347,10 @@ public class ReadPair {
 
         for (int i = 1; i < blocks.size(); i++) {
             AlignmentBlock block = blocks.get(i);
+            // ignore these blocks
+//            if (block.getLength() == 1) {
+//                continue;
+//            }
 
             if (block.getReferenceStart() <= current.getStop() + 1) {
                 current.setStop(Math.max(current.getStop(), block.getReferenceStart() + block.getLength() - 1));

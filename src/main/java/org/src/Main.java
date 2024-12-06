@@ -26,12 +26,13 @@ public class Main {
             String st = ns.get("frstrand");
 
             Boolean strandness = null;
-            if (st.equals("true")) {
-                strandness = true;
-            } else if (st.equals("false")) {
-                strandness = false;
+            if (st != null) {
+                if (st.equals("true")) {
+                    strandness = true;
+                } else if (st.equals("false")) {
+                    strandness = false;
+                }
             }
-
 //            String pathToBAM = "./BamFeatures/h.sn.1.bam";
 //            String pathToGTF = "./BamFeatures/Homo_sapiens.GRCh37.75.gtf";
             BamFeatures bam = new BamFeatures(bamPath, gtfPath, strandness);

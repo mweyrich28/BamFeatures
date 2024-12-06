@@ -36,6 +36,7 @@ public class BamFeatures {
             } else if (!currentChr.equals(current.getReferenceName())) {
                 // clear seen
                 seenEntries.clear();
+                pcrIndex.clear();
                 // clear chr in intervaltree as well
                 genome.getIntervalTreeMap().get(currentChr).clear();
                 // update currChr
@@ -52,8 +53,12 @@ public class BamFeatures {
                 continue;
             }
 
+
             // at this point we already have the read pair
             SAMRecord mate = seenEntries.get(current.getReadName());
+            if (mate.getReadName().equals("6605584")) { // shozld have transc
+                System.out.println();
+            }
             ReadPair pair = determineReadPair(mate, current, frstrand);
             StringBuilder sb = new StringBuilder(current.getReadName());
 
@@ -66,9 +71,6 @@ public class BamFeatures {
                     continue;
                 }
                 gdist = pair.getgdist(genome);
-            }
-            if (mate.getReadName().equals("266378")) { // should be MERGED
-                System.out.println();
             }
 
             String annotation = pair.annotateRegion();
@@ -92,6 +94,8 @@ public class BamFeatures {
                 sb.append("\tgcount:0" + "\tgdist:" + gdist);
                 if (frstrand != null) {
                     sb.append("\tantisense:" + pair.isAntisense(genome));
+                } else {
+                    sb.append("\tantisense:false");
                 }
                 // get antsense
             } else {
@@ -145,15 +149,6 @@ public class BamFeatures {
         else if (frstrand) {
             // mate first
             if (mate.getFirstOfPairFlag()) {
-                // mate -
-                if (mate.getReadNegativeStrandFlag()) {
-                    return new ReadPair(mate, current, false);
-                }
-                // mate +
-                else {
-                    return new ReadPair(mate, current, true);
-                }
-            } else {
                 // curr -
                 if (current.getReadNegativeStrandFlag()) {
                     return new ReadPair(current, mate, false);
@@ -161,6 +156,15 @@ public class BamFeatures {
                 // curr +
                 else {
                     return new ReadPair(current, mate, true);
+                }
+            } else {
+                // mate -
+                if (mate.getReadNegativeStrandFlag()) {
+                    return new ReadPair(mate, current, false);
+                }
+                // mate +
+                else {
+                    return new ReadPair(mate, current, true);
                 }
             }
         }

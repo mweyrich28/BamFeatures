@@ -11,18 +11,12 @@ public class Gene implements Interval {
     private final int end;
     private final String geneId;
     private final ArrayList<Transcript> transcriptList;
-    private final HashMap<String, Transcript> transcriptMap;
-    private final IntervalTree<Exon> exonTree;
     private final String geneName;
     private final String bioType;
     private final String chr;
     private final char strand;
-    private ArrayList<Exon> combinedExonList;
     private TreeSet<Region> meltedRegions;
-
     private String sequence;
-
-
     public Gene(String geneId, int start, int end, String geneName, String chr, char strand, String bioType) {
         this.geneId = geneId;
         this.geneName = geneName;
@@ -32,8 +26,6 @@ public class Gene implements Interval {
         this.strand = strand;
         this.bioType = bioType;
         this.transcriptList = new ArrayList<>();
-        this.transcriptMap = new HashMap<>();
-        this.exonTree = new IntervalTree<>();
     }
 
     public String getGeneId() {
@@ -42,30 +34,14 @@ public class Gene implements Interval {
 
     public void addTranscript(Transcript transcript) {
         transcriptList.add(transcript);
-        transcriptMap.put(transcript.getTranscriptId(), transcript);
     }
 
     public ArrayList<Transcript> getTranscriptList() {
         return transcriptList;
     }
 
-    public HashMap<String, Transcript> getTranscriptMap() {
-        return transcriptMap;
-    }
-
-    public Transcript getLastTranscript() {
-        if (!transcriptList.isEmpty()) {
-            return transcriptList.get(transcriptList.size() - 1);
-        }
-        return null;
-    }
-
     public String getChr() {
         return chr;
-    }
-
-    public void setSequence(String sequence) {
-        this.sequence = sequence;
     }
 
     @Override
@@ -81,6 +57,12 @@ public class Gene implements Interval {
     public int getEnd() {
         return end;
     }
+    public Transcript getLastTranscript() {
+        if (!transcriptList.isEmpty()) {
+            return transcriptList.get(transcriptList.size() - 1);
+        }
+        return null;
+    }
 
     public char getStrand() {
         return strand;
@@ -90,31 +72,8 @@ public class Gene implements Interval {
         return sequence;
     }
 
-    public void addExon(int start, int end, int pos, String transcriptId) {
-        this.exonTree.add(new Exon(start, end, pos, transcriptId));
-    }
-
-    public IntervalTree<Exon> getExonTree() {
-        return exonTree;
-    }
-
     public String getBioType() {
         return bioType;
-    }
-
-    public void initCombinedExonsList() {
-        this.combinedExonList = new ArrayList<>();
-        for (Transcript transcript : transcriptList) {
-            for (int i = 0; i < transcript.getExonList().size(); i++) {
-                Exon exon;
-                if (strand == '-') {
-                    exon = transcript.getExonList().get(transcript.getExonList().size() - 1 - i);
-                } else {
-                    exon = transcript.getExonList().get(i);
-                }
-                combinedExonList.add(exon);
-            }
-        }
     }
 
     public void melt() {

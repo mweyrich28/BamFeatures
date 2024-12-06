@@ -54,13 +54,19 @@ public class Transcript {
                 cutRegions.add(new Region(x1, x2));
                 break;
             }
+            // #----------------#
+            //     x1-----------#
             else if (x1 >= exon.getStart() && x1 <= exon.getStop()) {
                cutRegions.add(new Region(x1, exon.getStop()));
             }
+            // #----------------#
+            // #----------------#
             else if (x1 <= exon.getStart() && x2 >= exon.getStop()) {
                 cutRegions.add(new Region(exon.getStart(), exon.getStop()));
             }
-            else if (x2 < exon.getStop()) {
+            // #----------------#
+            // #---------x2
+            else if (x2 >= exon.getStart() && x2 <= exon.getStop()) {
                 cutRegions.add(new Region(exon.getStart(), x2));
                 break;
             }
@@ -68,8 +74,11 @@ public class Transcript {
         return cutRegions;
     }
 
-    public HashSet<Region> meltRegions(ArrayList<Region> regions) {
-        HashSet<Region> melted = new HashSet<>();
+    public TreeSet<Region> meltRegions(ArrayList<Region> regions) {
+        TreeSet<Region> melted = new TreeSet<>(
+                Comparator.comparingInt(Region::getStart)
+                        .thenComparingInt(Region::getStop)
+        );
 
         if (regions.size() == 1) {
             melted.addAll(regions);
