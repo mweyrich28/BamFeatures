@@ -56,7 +56,7 @@ public class BamFeatures {
 
             // at this point we already have the read pair
             SAMRecord mate = seenEntries.get(current.getReadName());
-            if (mate.getReadName().equals("6605584")) { // shozld have transc
+            if (mate.getReadName().equals("11797630")) { // no split
                 System.out.println();
             }
             ReadPair pair = determineReadPair(mate, current, frstrand);

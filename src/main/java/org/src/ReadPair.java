@@ -77,6 +77,11 @@ public class ReadPair {
 
         extractIntrons(overlapStart, overlapEnd, iRwRegions, iRegions, rwRecord);
 
+        // this is a really weird edge case
+        if (overlapEnd - overlapStart == -1) {
+            return iRegions.size();
+        }
+
         // implied intron missing
         if (iRwRegions.size() != iFwRegions.size()) {
             return -1;
