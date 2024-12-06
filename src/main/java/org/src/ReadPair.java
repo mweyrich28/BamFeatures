@@ -1,6 +1,7 @@
 package org.src;
 
 import augmentedTree.IntervalTree;
+import com.sun.source.tree.Tree;
 import net.sf.samtools.AlignmentBlock;
 import net.sf.samtools.SAMRecord;
 
@@ -63,6 +64,7 @@ public class ReadPair {
         // get overlap
         int overlapStart = Math.max(rwRecord.getAlignmentStart(), fwRecord.getAlignmentStart()) + 1;
         int overlapEnd = Math.min(rwRecord.getAlignmentEnd(), fwRecord.getAlignmentEnd());
+
         // sometimes swap is needed
         if (overlapStart > overlapEnd) {
             int tmp = overlapEnd;
@@ -72,9 +74,12 @@ public class ReadPair {
 
         HashSet<String> iFwRegions = new HashSet<>();
         HashSet<String> iRwRegions = new HashSet<>();
+        // this set will contain all introns
         HashSet<String> iRegions = new HashSet<>();
-        extractIntrons(overlapStart, overlapEnd, iFwRegions, iRegions, fwRecord);
 
+        // append all implied introns in overlap of fw to iFwRegions
+        extractIntrons(overlapStart, overlapEnd, iFwRegions, iRegions, fwRecord);
+        // append all implied introns in overlap of rw to iRwRegions
         extractIntrons(overlapStart, overlapEnd, iRwRegions, iRegions, rwRecord);
 
         // this is a really weird edge case
@@ -87,10 +92,11 @@ public class ReadPair {
             return -1;
         }
 
-        // overlapping introns not matching
+        // if implied introns match → return iRegions
         if (iRwRegions.containsAll(iFwRegions)) {
             return iRegions.size();
         }
+        // they dont → inconsistent
         return -1;
     }
 
@@ -115,12 +121,12 @@ public class ReadPair {
     public int getcgenes(Genome genome) {
         ArrayList<Gene> cgenes;
         cgenes = genome.getIntervalTreeMap()
-                .get(chr)
-                .get(frstrand)
-                .getIntervalsSpanning(alignmentStart, alignmentEnd, new ArrayList<>());
+                .get(this.chr)
+                .get(this.frstrand)
+                .getIntervalsSpanning(this.alignmentStart, this.alignmentEnd, new ArrayList<>());
 
         if (!cgenes.isEmpty()) {
-            // add genes for later
+            // add genes for later annotation
             containingGenes.addAll(cgenes);
         }
         return cgenes.size();
@@ -129,9 +135,9 @@ public class ReadPair {
     public int getigenes(Genome genome) {
         ArrayList<Gene> igenes;
         igenes = genome.getIntervalTreeMap()
-                .get(chr)
-                .get(frstrand)
-                .getIntervalsSpannedBy(alignmentStart, alignmentEnd, new ArrayList<>());
+                .get(this.chr)
+                .get(this.frstrand)
+                .getIntervalsSpannedBy(this.alignmentStart, this.alignmentEnd, new ArrayList<>());
         return igenes.size();
     }
 
@@ -140,13 +146,13 @@ public class ReadPair {
         ArrayList<Gene> rightNeighbors;
 
         leftNeighbors = genome.getIntervalTreeMap()
-                .get(chr)
-                .get(frstrand)
-                .getIntervalsLeftNeighbor(alignmentStart, alignmentEnd, new ArrayList<>());
+                .get(this.chr)
+                .get(this.frstrand)
+                .getIntervalsLeftNeighbor(this.alignmentStart, this.alignmentEnd, new ArrayList<>());
         rightNeighbors = genome.getIntervalTreeMap()
-                .get(chr)
-                .get(frstrand)
-                .getIntervalsRightNeighbor(alignmentStart, alignmentEnd, new ArrayList<>());
+                .get(this.chr)
+                .get(this.frstrand)
+                .getIntervalsRightNeighbor(this.alignmentStart, this.alignmentEnd, new ArrayList<>());
 
         // min(read start - gene end  or gene start - read end)
         int minDistance = Integer.MAX_VALUE;
@@ -176,9 +182,11 @@ public class ReadPair {
         StringBuilder annotationMerged = new StringBuilder();
         StringBuilder annotationIntronic = new StringBuilder();
 
+        // go through all genes
         for (Gene gene : containingGenes) {
             // check transcriptopmic
             String transcriptomic = findTranscriptomic(gene);
+            // handle result
             if (transcriptomic != null) {
                 if (!annotationTranscriptomic.isEmpty()) {
                     annotationTranscriptomic.append("|" + transcriptomic);
@@ -194,6 +202,7 @@ public class ReadPair {
 
             // check merged
             String merged = findMerged(gene);
+            // handle result
             if (merged != null) {
                 if (!annotationMerged.isEmpty()) {
                     annotationMerged.append("|" + merged);
@@ -206,6 +215,7 @@ public class ReadPair {
                 }
             }
 
+            // if not transcriptomic / merged → intronic
             // handle intronic
             if (!annotationIntronic.isEmpty()) {
                 annotationIntronic.append("|" + gene.getGeneId() + "," + gene.getBioType() + ":INTRON");
@@ -216,7 +226,8 @@ public class ReadPair {
             }
         }
 
-        // priority
+        // priority → return in order transcriptomic > merged > intronic
+        // gCount is updated correspondingly and later written to result
         if (transcriptomicCount != 0) {
             this.gCount = transcriptomicCount;
             return annotationTranscriptomic.toString();
@@ -233,38 +244,25 @@ public class ReadPair {
         boolean foundTranscript = false;
         StringBuilder transcriptomicSb = new StringBuilder(gene.getGeneId() + "," + gene.getBioType() + ":");
         for (Transcript transcript : gene.getTranscriptList()) {
-//            ArrayList<Region> trRegions = transcript.cut(alignmentStart, alignmentEnd);
-//            if (!trRegions.isEmpty() && meltedBlocks.equals(trRegions)) {
-//                if (foundTranscript) {
-//                    transcriptomicSb.append("," + transcript.getTranscriptId());
-//                } else {
-//                    transcriptomicSb.append(transcript.getTranscriptId());
-//                    foundTranscript = true;
-//                }
-//                continue;
-//            }
+            // cut fwx1 fwx2 from transcript exons
+            TreeSet<Region> cutFwRegions = transcript.cutSet(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd());
 
-            ArrayList<Region> cutFwRegions = transcript.cut(fwRecord.getAlignmentStart(), fwRecord.getAlignmentEnd());
+            // skip if there are no regions in x1-x2
             if (cutFwRegions.isEmpty()) {
                 continue;
             }
-            TreeSet<Region> mergedFwRegions = transcript.meltRegions(cutFwRegions);
 
-            // ckeck this case
-            // #----------------------------------# merged transc cut
-            // #-----------------#   #------------# fw
-            if (mergedFwRegions.equals(regionVecFw)) {
-                ArrayList<Region> cutRwRegions = transcript.cut(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
+            // only if the above passes check rw
+            if (cutFwRegions.equals(regionVecFw)) {
+                // cut rwx1 rwx2 from transcript exons
+                TreeSet<Region> cutRwRegions = transcript.cutSet(rwRecord.getAlignmentStart(), rwRecord.getAlignmentEnd());
+
+                // skip if there are no regions in x1-x2
                 if (cutRwRegions.isEmpty()) {
                     continue;
                 }
-                TreeSet<Region> mergedRwRegions = transcript.meltRegions(cutRwRegions);
 
-                // if there are no regions stop (same as above but for rw)
-                if (mergedRwRegions.isEmpty()) {
-                    continue;
-                }
-                if (mergedRwRegions.equals(regionVecRw)) {
+                if (cutRwRegions.equals(regionVecRw)) {
                     if (foundTranscript) {
                         transcriptomicSb.append("," + transcript.getTranscriptId());
                     } else {
@@ -274,6 +272,7 @@ public class ReadPair {
                 }
             }
         }
+
         if (foundTranscript) {
             return transcriptomicSb.toString();
         } else {
@@ -282,12 +281,11 @@ public class ReadPair {
     }
 
     public String findMerged(Gene gene) {
-        // check fwRead
-        // TODO: fix treeset and iterate over reads combined merged alignment blocks
         TreeSet<Region> mergedTranscriptome = gene.getMeltedRegions();
         TreeSet<Region> mergedRead = this.meltedBlocks;
 
         int count = 0;
+        // brute force this one
         for (Region region : mergedRead) {
             for (Region transcriptRegion : mergedTranscriptome) {
                 if (transcriptRegion.contains(region)) {
@@ -309,15 +307,12 @@ public class ReadPair {
 
     public boolean isAntisense(Genome genome) {
         ArrayList<Gene> cgenes;
+        // negate frstrand
         cgenes = genome.getIntervalTreeMap()
                 .get(chr)
                 .get(!frstrand)
                 .getIntervalsSpanning(alignmentStart, alignmentEnd, new ArrayList<>());
 
-        if (!cgenes.isEmpty()) {
-            // add genes for later
-            containingGenes.addAll(cgenes);
-        }
         return !(cgenes.isEmpty());
     }
 
@@ -326,6 +321,7 @@ public class ReadPair {
     }
 
     public void melt() {
+        // melt all regions fw, rw, and merged)
         ArrayList<AlignmentBlock> allBlocks = new ArrayList<>();
         ArrayList<AlignmentBlock> fwBlocks = new ArrayList<>();
         ArrayList<AlignmentBlock> rwBlocks = new ArrayList<>();
@@ -337,7 +333,9 @@ public class ReadPair {
         this.regionVecRw = meltRegion(rwBlocks);
         this.meltedBlocks = meltRegion(allBlocks);
     }
+
     public TreeSet<Region> meltRegion(ArrayList<AlignmentBlock> blocks) {
+        // for a given list of alignmentblocks, melt into TreeSet
         TreeSet<Region> melted = new TreeSet<>(
                 Comparator.comparingInt(Region::getStart)
                         .thenComparingInt(Region::getStop)
@@ -352,11 +350,6 @@ public class ReadPair {
 
         for (int i = 1; i < blocks.size(); i++) {
             AlignmentBlock block = blocks.get(i);
-            // ignore these blocks
-//            if (block.getLength() == 1) {
-//                continue;
-//            }
-
             if (block.getReferenceStart() <= current.getStop() + 1) {
                 current.setStop(Math.max(current.getStop(), block.getReferenceStart() + block.getLength() - 1));
             } else {

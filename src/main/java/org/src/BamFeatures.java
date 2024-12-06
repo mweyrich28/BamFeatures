@@ -25,7 +25,7 @@ public class BamFeatures {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
         HashMap<Boolean, HashMap<TreeSet<Region>, Integer>> pcrIndex = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
-        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(new File(outPath)));
+        BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(outPath));
         // track chromosome
         String currentChr = null;
         while (it.hasNext()) {
@@ -36,6 +36,7 @@ public class BamFeatures {
             } else if (!currentChr.equals(current.getReferenceName())) {
                 // clear seen
                 seenEntries.clear();
+                // clear pcr index
                 pcrIndex.clear();
                 // clear chr in intervaltree as well
                 genome.getIntervalTreeMap().get(currentChr).clear();
@@ -55,11 +56,12 @@ public class BamFeatures {
 
 
             // at this point we already have the read pair
+            // get mate
             SAMRecord mate = seenEntries.get(current.getReadName());
-            if (mate.getReadName().equals("11797630")) { // no split
-                System.out.println();
-            }
+            // init readpair with its correct strandness
             ReadPair pair = determineReadPair(mate, current, frstrand);
+
+            // append read id to sb
             StringBuilder sb = new StringBuilder(current.getReadName());
 
             int igenes = pair.getigenes(genome);
@@ -73,8 +75,9 @@ public class BamFeatures {
                 gdist = pair.getgdist(genome);
             }
 
-            String annotation = pair.annotateRegion();
+
             // update count based on annotation
+            String annotation = pair.annotateRegion();
             cgenes = pair.getgCount();
 
             int nsplit = pair.getNsplit();

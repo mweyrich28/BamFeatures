@@ -16,7 +16,6 @@ public class Gene implements Interval {
     private final String chr;
     private final char strand;
     private TreeSet<Region> meltedRegions;
-    private String sequence;
     public Gene(String geneId, int start, int end, String geneName, String chr, char strand, String bioType) {
         this.geneId = geneId;
         this.geneName = geneName;
@@ -66,10 +65,6 @@ public class Gene implements Interval {
 
     public char getStrand() {
         return strand;
-    }
-
-    public String getSeq() {
-        return sequence;
     }
 
     public String getBioType() {

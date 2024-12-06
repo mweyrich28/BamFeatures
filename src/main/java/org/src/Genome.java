@@ -92,9 +92,6 @@ public class Genome {
         return intervalTreeMap;
     }
 
-    public HashMap<String, Gene> getGenes() {
-        return genes;
-    }
 
     public void readGTF(String pathToGtf, Boolean frtrand) throws IOException {
         // sanity check vars
@@ -137,9 +134,6 @@ public class Genome {
                 // true  → - strand
                 boolean isNegative = strand == '-';
 
-                // TODO: Keep for now
-                genes.put(lastGene.getGeneId(), lastGene);
-
                 // Here IntervalTree
                 // if frstrand == null → just create one tree
                 if (!intervalTreeMap.containsKey(chr)) {
@@ -167,16 +161,13 @@ public class Genome {
                 // only add cds to current transcript
                 String transcriptId = FileUtils.parseGTFAttributes(attributeEntries, "transcript_id");
 
-                // add gene to genome
-                genes.put(lastGene.getGeneId(), lastGene);
-
                 // add new transcript to current gene
                 int transcriptStart = Integer.parseInt(mainComponents[3]);
                 int transcriptStop = Integer.parseInt(mainComponents[4]);
                 Transcript transcript = new Transcript(transcriptId, mainComponents[6].charAt(0), transcriptStart, transcriptStop);
                 lastGene.addTranscript(transcript);
 
-                // reset
+                // reset counter
                 exonCounter = 0;
             }
             // add exon to last transcript
