@@ -1,8 +1,6 @@
 package org.src;
 
-import augmentedTree.Interval;
-
-public class Exon implements Interval {
+public class Exon {
     private int length;
     private final int start;
     private final int stop;
