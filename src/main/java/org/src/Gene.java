@@ -9,6 +9,8 @@ import java.util.*;
 public class Gene implements Interval {
     private final int start;
     private final int end;
+    private int meltedLength = 0;
+
     private final String geneId;
     private final ArrayList<Transcript> transcriptList;
     private final String geneName;
@@ -110,6 +112,19 @@ public class Gene implements Interval {
             melt();
         }
         return this.meltedRegions;
+    }
+
+    public int getMeltedLength() {
+        // make sure to only calculate once
+        if (this.meltedLength == 0) {
+            TreeSet<Region> meltedRegions = getMeltedRegions();
+            int length = 0;
+            for (Region region : meltedRegions) {
+                length += region.getStop() - region.getStart() - 1;
+            }
+            this.meltedLength = length;
+        }
+        return meltedLength;
     }
 }
 

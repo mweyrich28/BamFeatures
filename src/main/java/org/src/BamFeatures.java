@@ -1,4 +1,5 @@
 package org.src;
+import augmentedTree.IntervalTree;
 import net.sf.samtools.*;
 
 import java.io.BufferedWriter;
@@ -21,7 +22,7 @@ public class BamFeatures {
         this.samReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
     }
 
-    public void processBAM(Boolean frstrand, String outPath) throws IOException {
+    public void processBAM(Boolean frstrand, String outPath, boolean lenghs) throws IOException {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
         HashMap<Boolean, HashMap<TreeSet<Region>, Integer>> pcrIndex = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
@@ -76,9 +77,6 @@ public class BamFeatures {
             }
 
 
-            // update count based on annotation
-            String annotation = pair.annotateRegion();
-            cgenes = pair.getgCount();
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
@@ -86,6 +84,10 @@ public class BamFeatures {
                 bufferedWriter.write(sb + "\n");
                 continue;
             }
+            // update count based on annotation
+            String annotation = pair.annotateRegion();
+            cgenes = pair.getgCount();
+
             int mm = pair.getmm();
             int clipping = pair.getclipping();
 
@@ -105,7 +107,6 @@ public class BamFeatures {
                 sb.append("\tgcount:" + cgenes);
                 sb.append("\t" + annotation);
             }
-
             TreeSet<Region> regions = pair.getMeltedBlocks();
             if (!pcrIndex.containsKey(pair.getFrstrand())) {
                 pcrIndex.put(pair.getFrstrand(), new HashMap<>());
@@ -125,6 +126,19 @@ public class BamFeatures {
         }
         bufferedWriter.flush();
         bufferedWriter.close();
+        if(lenghs) {
+            BufferedWriter bf = new BufferedWriter(new FileWriter(outPath +"_gene_lengths.tsv"));
+            bf.write("gene\tlength");
+            for(HashMap<Boolean, IntervalTree<Gene>> map : genome.getIntervalTreeMap().values()) {
+                for(IntervalTree<Gene> tree: map.values()) {
+                    for(Gene gene : tree.descendingSet()) {
+                        bf.write("\n" + gene.getGeneId() + "\t" + gene.getMeltedLength());
+                    }
+                }
+            }
+            bf.flush();
+            bf.close();
+        }
     }
 
     public boolean flagCheck(SAMRecord record) {
