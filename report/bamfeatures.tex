@@ -9,6 +9,8 @@
 \usepackage{algorithm}% http://ctan.org/pkg/algorithms
 \usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
 \usepackage{algorithmicx}
+\renewcommand{\figurename}{Abbildung} % Repeat for appendix if required
+\renewcommand{\tablename}{Tabelle} % Repeat for appendix if required
 
 
 \newcommand{\malte}[1]{\coauthorComment[Malte]{#1}}
@@ -118,20 +120,37 @@ Region beider \textit{Reads} gibt, müssen die potentiell implizierten Introns b
 \State iRegions $\gets \{\}$ \Comment{Set for containing all Introns}
 \State \textbf{extractIntronsInOverlap}(overlap.x1, overlap.x2, iFwRegions, iRegions, fw) 
 \State \textbf{extractIntronsInOverlap}(overlap.x1, overlap.x2, iRwRegions, iRegions, rw)
-\If{$|iRwRegions| \neq |iFwRegions|$}
+\If{|iRwRegions| $\neq$ |iFwRegions|}
 \State \Return -1 \Comment{split-inconsistent}
 \EndIf
-\If{$iRwRegions = iFwRegions$}
-\State \Return $|iRegions|$\Comment{Return unique Introns in overlap}
+\If{iRwRegions = iFwRegions}
+\State \Return |iRegions|\Comment{Return unique Introns in overlap}
 \EndIf
 \State \Return -1\Comment{split-inconsistent (default)}
 \end{algorithmic}
 \end{algorithm}
 Nach dem Aufruf von \textit{getNsplit()} wird bei einem \textit{return value} von -1 das \textit{ReadPair} als 
-\textit{split-inconsistent} vermerkt und in die Ausgabedatei übernommen.
+\textit{"split-inconsistent"} vermerkt und in die Ausgabedatei übernommen, ansonsten wird die Grö\ss e der
+Menge \textit{iRegions} in der Variable \textit{nsplit} gespeichert und das \textit{ReadPair} weiter prozessiert.
+\newpage
+Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert:
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=0.95\textwidth]{./figures/ReadAnnotation.png}
+    \caption{Kategorisierung der \textit{ReadPair} Region in: \textit{\textbf{Transcriptomic}}, \textit{\textbf{Merged}} und \textbf{\textit{Intronic}}.... 
+    erstellt mit \cite{biorender}}
+    \label{fig:-figures-ReadAnnotation-png}
+\end{figure}
+
 
 
 \subsection{Laufzeit}
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=0.9\textwidth]{./plots/times_bam.jpg}
+    \caption{Laufzeit der JAR auf den 3 vorgegebenen \textit{BAMs} in Sekunden verglichen mit dem \textit{BAM} Volumen in \textit{MB} }
+    \label{fig:-plots-times_bam-jpg}
+\end{figure}
 \subsection{Korrektheit}
 \subsection{Benchmarking}
 \section{Ergebnisse}
@@ -140,7 +159,7 @@ Nach dem Aufruf von \textit{getNsplit()} wird bei einem \textit{return value} vo
 
 
 % ------------------------------------------------------------------------------
-% \printbibliography
+\printbibliography
 % ------------------------------------------------------------------------------
 
 

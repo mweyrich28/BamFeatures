@@ -42,6 +42,5 @@ build/
 
 BamFeatures/
 
-*.jar
-
 pom.xml
+*.annot
