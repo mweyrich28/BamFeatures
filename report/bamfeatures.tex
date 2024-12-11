@@ -63,6 +63,31 @@ Korrektheit analysiert.
 
 % ------------------------------------------------------------------------------
 % ------------------------------------------------------------------------------
+\section{RNA-seq}
+Die Bezeichnung \textit{RNA-seq} bezieht sich auf ein bestimmtes Sequenzierprotokoll der Bioinformatik bei dem
+möglichst alle exprimierten Transkripte mehrerer Samples mittels Hochdurchsatz-sequenziergeräten wie
+\textit{Illumina} verarbeitet und die resultierenden \textit{Reads} in Ausgabe Dateien abgespeichert werden.
+Bei \textit{Illumina} werden die extrahierten Transkripte mittels Ultraschall oder enzymatischer Fermentation in Fragmente mit ähnlicher Länge
+zerstückelt und mit Adaptersequenzen und Barcodes versehen. Darauf folgt eine \textit{PCR} Amplifikation der 
+Fragmente, um das Signal zu verstärken. Die amplifizierten Fragmente können nun im Sequenzierzyklus 
+von \textit{Illumina}, Base für Base, gelesen werden. Dabei wird jedoch nicht das ganze Fragment gelesen, sondern
+jeweils nur ca. $100BP$ (abhängig von Voreinstellung und Protokoll) beider Enden des Fragments (\textit{paired-end sequencing}).
+Somit entstehen pro Fragment zwei \textit{Reads}, ein forward \textit{Read} und ein reverse \textit{Read},
+welche zu einem \textit{ReadPair} zusammengefasst werden können. 
+In dem Protokoll von \textit{Illumina} werden zuerst alle \textit{Reads} eines Endes aller
+Fragmente gemacht, dann wird das Fragment, \textbf{vereinfacht gesagt}, auf der \textit{Flow Zelle} umgedreht (durch Replikation), wodurch 
+die umgedrehten Fragmente jeweils das Komplement ihres ursprünglichen Fragments sind.
+Somit sollten die \textit{Reads} eines \textit{ReadPairs} immer auf entgegengesetzte Stränge \textit{("+"/"-")}
+\textit{"mappen"}. Ist bei einem Sequenzierexperiment die Ausgangskonfiguration der Fragmente bekannt, so handelt 
+es sich um ein \textit{strand specific} Experiment und man kann allen
+\textit{Reads} einem festen Strang zuordnen, je nach dem, ob das Fragment in der Anfangskonfiguration
+vom \textit{"-"} oder vom \textit{"+"} Strang kam.
+Ein \textit{Mapper} würde nun solche \textit{ReadPairs} an einem \textit{Referenzgenom} \textit{mappen}
+und eine (oder mehrere) \textit{SAM/BAM} Datei(en) erstellen, welche unter anderem die Koordinaten der alignierten 
+\textit{Reads} basierend auf dem \textit{Referenzgenom} beinhalten. 
+Die Alignment Daten dieser Datei können nun von der \textit{BamFeatures JAR} weiter annotiert werden. 
+
+
 \section{Java Programm}
 \begin{verbatim*}
 Usage:
@@ -71,11 +96,9 @@ Usage:
 \end{verbatim*}
 \subsection{Argumente}
 Zusätzlich zu den vorausgesetzten Argumenten (\textit{-bam}, \textit{-o}, \textit{-gtf}) können noch \textit{-frstrand} und
-\textit{-lengths} angegeben werden. Bei Sequenzierungen von \textit{RNA-Seq} Daten ist es wichtig, die 
-Strangrichtung zu berücksichtigen. Diese Eigenschaft bestimmt bei der Analyse, von welchen Strängen
-die \textit{Reads} eines \textit{Readpairs} stammen, wobei \textit{true} für den \textit{’+’} und \textit{false} für den \textit{’-’} Strang steht. 
-Bei einem Strangpositiven Experiment ist der \textit{Forward Read} auf dem \textit{’+’} und der \textit{Reverse Read} auf dem
-\textit{’-’}. So kann die \textit{JAR} die \textit{Reads} korrekt zuordnen. 
+\textit{-lengths} angegeben werden. 
+Bei einem Strangpositiven Experiment (\textit{-frstrand true}) ist der forward \textit{Read} auf dem \textit{"+"} und der reverse \textit{Read} auf dem
+\textit{"-"}. So kann die \textit{JAR} die \textit{Reads} korrekt zuordnen. 
 Falls die Strangrichtung nicht angegeben ist, werden für beide \textit{Reads} jeweils beide Stränge betrachtet.
 Die \textit{-lengths} Option wird für die Berechnung der \textit{RPKM} Werte benötigt. 
 Ist diese Option gesetzt, so werden die für die Längennormalisierung benötigte Genlängen der kombinierten Exons jedes
@@ -133,14 +156,18 @@ Nach dem Aufruf von \textit{getNsplit()} wird bei einem \textit{return value} vo
 \textit{"split-inconsistent"} vermerkt und in die Ausgabedatei übernommen, ansonsten wird die Grö\ss e der
 Menge \textit{iRegions} in der Variable \textit{nsplit} gespeichert und das \textit{ReadPair} weiter prozessiert.
 \newpage
-Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert:
+Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert \ref{fig:-figures-ReadAnnotation-png}:
 \begin{figure}[htpb]
     \centering
     \includegraphics[width=0.95\textwidth]{./figures/ReadAnnotation.png}
-    \caption{Kategorisierung der \textit{ReadPair} Region in: \textit{\textbf{Transcriptomic}}, \textit{\textbf{Merged}} und \textbf{\textit{Intronic}}.... 
-    erstellt mit \cite{biorender}}
+\caption{Kategorisierung der \textit{ReadPair}-Regionen in die Klassen \textit{\textbf{"Transcriptomic"}},
+\textit{\textbf{"Merged"}} und \textit{\textbf{"Intronic"}}, wobei eine Priorisierung nach 
+der Reihenfolge \textit{\textbf{"Transcriptomic"}} > \textit{\textbf{"Merged"}} > \textit{\textbf{"Intronic"}} erfolgt.
+Die \textit{AlignmentBlocks} der \textit{Reads} werden mit den Exons der Transkripte des inkludierenden Gens abgeglichen. 
+Die Abbildung wurde mit \cite{biorender} erstellt}
     \label{fig:-figures-ReadAnnotation-png}
 \end{figure}
+
 
 
 
@@ -155,6 +182,42 @@ Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert:
 \subsection{Benchmarking}
 \section{Ergebnisse}
 
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_mplot.png}
+%     \caption{}
+%     \label{fig:-plots-hes_star-Plots-rpkm_mplot-png}
+% \end{figure}
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_hist.png}
+%     \caption{}
+%     \label{fig:-plots-hes_star-Plots-rpkm_hplot-png}
+% \end{figure}
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/ebna_hisat/Plots/rpkm_hist.png}
+%     \caption{}
+%     \label{fig:-plots-ebna_hisat-Plots-rpkm_hplot-png}
+% \end{figure}
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/ebna_hisat/Plots/rpkm_mplot.png}
+%     \caption{}
+%     \label{fig:-plots-ebna_hisat-Plots-rpkm_mplot-png}
+% \end{figure}
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/nookaew_cm/Plots/rpkm_hist.png}
+%     \caption{}
+%     \label{fig:-plots-nookaew_cm-Plots-rpkm_hplot-png}
+% \end{figure}
+% \begin{figure}[htpb]
+%     \centering
+%     \includegraphics[width=0.85\textwidth]{./plots/nookaew_cm/Plots/rpkm_mplot.png}
+%     \caption{}
+%     \label{fig:-plots-nookaew_cm-Plots-rpkm_mplot-png}
+% \end{figure}
 
 
 
