@@ -22,12 +22,17 @@ def calc_rpkm(reads: str, gene_lengths: dict, total_reads: int):
                 last_gene_name = gene_name
                 read_counter_per_gene += 1
             else:
-                rpm = read_counter_per_gene / per_million_scaling_factor
-                rpkm = rpm / gene_lengths[gene_name]
-                print(f"{gene_name}\t{rpkm}")
-
+                RPKM = read_counter_per_gene / ( (gene_lengths[gene_name][0] / 1000) * per_million_scaling_factor)
+                print(f"{gene_name}\t{RPKM}\t{gene_lengths[gene_name][1].strip("\n")}")
+                # print(f"{last_gene_name}: RPKM = {read_counter_per_gene} / (({gene_lengths[gene_name][0]} / 1000) * {per_million_scaling_factor}) = {RPKM}")
+                
                 read_counter_per_gene = 1  # reset read count
                 last_gene_name = gene_name
+        
+        if last_gene_name in gene_lengths:
+            RPKM = read_counter_per_gene / ( (gene_lengths[last_gene_name][0] / 1000) * per_million_scaling_factor)
+            print(f"{last_gene_name}\t{RPKM}\t{gene_lengths[last_gene_name][1].strip("\n")}")
+            # print(f"{last_gene_name}: RPKM = {read_counter_per_gene} / ( {gene_lengths[last_gene_name][0]} / 1000 * {per_million_scaling_factor})")
 
 
 def read_gene_lengths(gene_path):
@@ -38,7 +43,7 @@ def read_gene_lengths(gene_path):
             if(line.startswith("gene")):
                 continue
             comp = line.split("\t")
-            gene_lengths[comp[0]] = int(comp[1])
+            gene_lengths[comp[0]] = [int(comp[1]), comp[2]]
 
     return gene_lengths
  
