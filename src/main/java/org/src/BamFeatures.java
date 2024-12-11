@@ -22,7 +22,7 @@ public class BamFeatures {
         this.samReader.setValidationStringency(SAMFileReader.ValidationStringency.SILENT);
     }
 
-    public void processBAM(Boolean frstrand, String outPath, boolean lenghs) throws IOException {
+    public void processBAM(Boolean frstrand, String outPath, boolean lengths) throws IOException {
         HashMap<String, SAMRecord> seenEntries = new HashMap<>();
         HashMap<Boolean, HashMap<TreeSet<Region>, Integer>> pcrIndex = new HashMap<>();
         Iterator<SAMRecord> it = samReader.iterator();
@@ -65,11 +65,11 @@ public class BamFeatures {
             // append read id to sb
             StringBuilder sb = new StringBuilder(current.getReadName());
 
-            int igenes = pair.getigenes(genome);
             int cgenes = pair.getcgenes(genome);
             int gdist = 0;
 
             if (cgenes == 0) {
+                int igenes = pair.getigenes(genome);
                 if (igenes > 0) {
                     continue;
                 }
@@ -126,13 +126,13 @@ public class BamFeatures {
         }
         bufferedWriter.flush();
         bufferedWriter.close();
-        if(lenghs) {
+        if(lengths) {
             BufferedWriter bf = new BufferedWriter(new FileWriter(outPath +"_gene_lengths.tsv"));
-            bf.write("gene\tlength");
+            bf.write("gene\tlength\tchr");
             for(HashMap<Boolean, IntervalTree<Gene>> map : genome.getIntervalTreeMap().values()) {
                 for(IntervalTree<Gene> tree: map.values()) {
                     for(Gene gene : tree.descendingSet()) {
-                        bf.write("\n" + gene.getGeneId() + "\t" + gene.getMeltedLength());
+                        bf.write("\n" + gene.getGeneId() + "\t" + gene.getMeltedLength() + "\t" + gene.getChr());
                     }
                 }
             }
