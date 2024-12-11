@@ -115,6 +115,11 @@ gespeichert und für jede Iteration wird überprüft, ob wir die \textit{Read Id
 Sobald wir zwei zusammengehörende \textit{Reads} identifiziert haben, wird ein neues
 \textit{ReadPair Objekt} erstellt. Dabei wird die Strangrichtung beim erstellen des Objekts berücksichtigt und
 die \textit{Reads} jeweils nach \textit{forward} und \textit{reverse} kategorisiert.
+Zusätzlich werden die \textit{AlignmentBlocks} beider Reads zu einem gemeinsamen \textit{Regionvector meltedBlocks} und
+zwei einzelnen \textit{Regionvectors} (\textit{regionVecFw}, \textit{regionVecRw}) verschmolzen.
+Dies ist notwendig für die anschlie\ss enden Berechnungen und fängt einige \textit{Edge Cases} ab.
+Hat ein \textit{Reads} z.B. $b_{1}, b_{2} \in AlignmentBlocks$ und $b_{1}.\text{end} == b_{2}.\text{start - 1}$,
+so werden $b_{1}, b_{2} \rightarrow_{melt()} b_{neu}$, mit $b_{neu}.\text{start} == b_{1}.\text{start} \land b_{neu}.\text{end} == b_{2}.\text{end}$
 \newpage
 
 \subsubsection{Berechnung der ReadPair Attribute}
@@ -128,10 +133,10 @@ verwendet, welches für jedes Chromosom die Gene nach ihrem Strang in Intervalb�
 Falls \textit{|cgenes|} $== 0$ aber \textit{|igenes|} $> 0$  wird das \textit{ReadPair} verworfen und 
 mit dem nächsten weiter gemacht, sind beide Mengen leer, so wird die kürzeste Distanz zu benachbarten Genen ausgerechnet und in
 \textit{gdist} abgespeichert.
-Danach wird das \textit{ReadPair} auf \textit{split-inconsistency} überprüft, d.h. falls es eine überlappende 
+Danach wird das \textit{ReadPair} auf \textit{split-inconsistency} überprüft (Algotithmus \ref{alg:nsplit}), d.h. falls es eine überlappende 
 Region beider \textit{Reads} gibt, müssen die potentiell implizierten Introns beider \textit{Reads} übereinstimmen.
 \begin{algorithm}[!htbp]
-\caption{getNsplit()}
+    \caption{getNsplit()}\label{alg:nsplit}
 \begin{algorithmic}[1]
 \State \textbf{Input:} fw, rw \Comment{forward and reverse reads}
 \If{$|\text{fw.Blocks}| = 1$ \textbf{and} $|\text{rw.Blocks}| = 1$}\Comment{Checks if the reads imply introns}
@@ -164,11 +169,83 @@ Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert \ref{f
 \textit{\textbf{"Merged"}} und \textit{\textbf{"Intronic"}}, wobei eine Priorisierung nach 
 der Reihenfolge \textit{\textbf{"Transcriptomic"}} > \textit{\textbf{"Merged"}} > \textit{\textbf{"Intronic"}} erfolgt.
 Die \textit{AlignmentBlocks} der \textit{Reads} werden mit den Exons der Transkripte des inkludierenden Gens abgeglichen. 
-Die Abbildung wurde mit \cite{biorender} erstellt}
+Die Abbildung wurde mit \cite{biorender} erstellt.}
     \label{fig:-figures-ReadAnnotation-png}
 \end{figure}
 
+Bei der Regions-Annotation wird als erstes die \textit{\textbf{Transcriptomic}} Kategorie überprüft.
+Hierbei wird über alle Gene die das \textit{ReadPair} inkludieren iteriert und für jeden \textit{Read} des \textit{ReadPairs} mit der Methode
+\textit{cut(X1, X2)} zwei neuer \textit{Regionvectors} aus jedem Transkript  ausgeschnitten (Abbildung \ref{fig:-figures-ReadAnnotation-png}), 
+wobei $X1$ der \textit{Alignmentstart} und $X2$ das \textit{Alignmentende} des momentanen \textit{Reads} ist.
+Falls beide ausgeschnittenen \textit{Regionvectors} aus dem Transkript gleich der geschmolzenen \textit{Regionvectors} der 
+\textit{Reads} entsprechen, ist das \textit{ReadPair} \textit{\textbf{Transcriptomic}} und das entsprechende Transkript
+wird zusammen mit dem Gen in die Lösungsmenge genommen.
 
+Für die \textit{\textbf{Merged}} Kategorie reicht es, wenn die \textit{Regionvectors} der \textit{Reads} in dem geschmolzenen
+Transkriptom eines Gens enthalten sind (siehe Abbildung \ref{fig:-figures-ReadAnnotation-png}). 
+Das geschmolzene Transkriptom wird im Algorithmus \ref{alg:melt} berechnet und besteht aus allen annotierten Exons 
+eines Gens. Wenn ein \textit{ReadPair} dieser Kategorie zugeteilt wird, wird das Gen in einer separaten Lösungsmenge
+gespeichert. Falls die oberen zwei Ansätze beide nicht zutreffen, so handelt es sich um ein \textit{\textbf{Intronic}}
+\textit{ReadPair}.
+
+
+\begin{algorithm}[!tbp]
+\caption{Melt Exons into Regions}\label{alg:melt}
+\begin{algorithmic}[1]
+\State \textbf{Input:} \text{transcriptList} (list of transcripts containing exons)
+\State allExons $\gets \emptyset$
+\For{each transcript in transcriptList}
+    \State allExons.addAll(transcript.getExonList()) \Comment{Add all exons from transcript to the list}
+\EndFor
+\State \text{Sort allExons by start position} \Comment{Sort exons by their start positions}
+\State meltedRegions $\gets$ new TreeSet() \Comment{Create a new set for melted regions}
+
+\If{allExons is not empty}
+    \State first $\gets$ allExons.get(0) \Comment{Get the first exon}
+    \State current $\gets$ new Region(first.getStart(), first.getStop()) \Comment{Create a region for the first exon}
+
+    \For{$i \gets 1$ to $allExons.size() - 1$}
+        \State exon $\gets$ allExons.get(i)
+        \If{exon.getStart() $\leq$ current.getStop() + 1}
+            \State current.setStop($\max$(current.getStop(), exon.getStop())) \Comment{Extend the region if exons overlap or are adjacent}
+        \Else
+            \State meltedRegions.add(current) \Comment{Add the completed region to the set}
+            \State current $\gets$ new Region(exon.getStart(), exon.getStop()) \Comment{Start a new region}
+        \EndIf
+    \EndFor
+
+    \State meltedRegions.add(current) \Comment{Add the last region}
+\EndIf
+\State \Return meltedRegions \Comment{Return the melted regions}
+\end{algorithmic}
+\end{algorithm}
+
+Nach der Regions-Annotation wird der \textit{gcount} geupdated mit der Anzahl an Genen der 
+plausibelsten Kategorie. Die mismatches 
+
+
+% \begin{algorithm}[!htbp]
+% \caption{cut(int X1, int X2)}\label{alg:cut}
+% \begin{algorithmic}[1]
+% \State \textbf{Input:} X1, X2
+% \State cutRegions $\gets \{\}$
+% \For{each exon in exonList}
+%
+%     \If{$X1 \geq \text{exon.start}$ \textbf{and} $X1 \leq \text{exon.stop}$ \textbf{and} $X2 \geq \text{exon.start}$ \textbf{and} $X2 \leq \text{exon.stop}$}
+%         \State cutRegions.add(Region(X1, X2)) \Comment{Completely contained}
+%         \State \textbf{break}
+%     \ElsIf{$X1 \geq \text{exon.start}$ \textbf{and} $X1 \leq \text{exon.stop}$}
+%         \State cutRegions.add(Region(X1, exon.stop)) \Comment{Partial overlap starting from X1}
+%     \ElsIf{$X1 \leq \text{exon.start}$ \textbf{and} $X2 \geq \text{exon.stop}$}
+%         \State cutRegions.add(Region(exon.start, exon.stop)) \Comment{Exon completely covered}
+%     \ElsIf{$X2 \geq \text{exon.start}$ \textbf{and} $X2 \leq \text{exon.stop}$}
+%         \State cutRegions.add(Region(exon.start, X2)) \Comment{Partial overlap ending at X2}
+%         \State \textbf{break}
+%     \EndIf
+% \EndFor
+% \State \Return cutRegions \Comment{Return the list of cut regions}
+% \end{algorithmic}
+% \end{algorithm}
 
 
 \subsection{Laufzeit}
