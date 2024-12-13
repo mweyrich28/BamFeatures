@@ -9,9 +9,6 @@
 \usepackage{algorithm}% http://ctan.org/pkg/algorithms
 \usepackage{algpseudocode}% http://ctan.org/pkg/algorithmicx
 \usepackage{algorithmicx}
-\renewcommand{\figurename}{Abbildung} % Repeat for appendix if required
-\renewcommand{\tablename}{Tabelle} % Repeat for appendix if required
-
 
 \newcommand{\malte}[1]{\coauthorComment[Malte]{#1}}
 
@@ -46,16 +43,18 @@ attach boxed title to top left={xshift=-4mm},boxrule=0pt,after skip=1cm,before s
 \begin{abstract}
 Das Sequenzieren in der Bioinformatik generiert Milliarden von \textit{Reads} pro \textit{Sample}, welche mit
 einem \textit{Mapper} an das \textit{Referenzgenom} aligniert werden. 
-Diese Daten werden in einer \textit{Sequence Alignment Map (SAM)} gespeichert und können zusätzlich in ein komprimiertes Format,
+Diese Daten werden in einer \textit{Sequence Alignment Map (SAM)} Datei gespeichert und können zusätzlich in ein komprimiertes Format,
 einer \textit{Binary Alignment Map (BAM)} Datei, umgewandelt werden. Anschließend können verschiedene Analysen auf
 den \textit{BAM} Dateien durchgeführt werden. Die in diesem Report diskutierte \textit{JAR} liest eine gegebene
 \textit{paired-end RNA-seq BAM} Datei ein und errechnet verschiedene Features, die in einer \textit{<tsv>} Datei
 gespeichert werden. Die JAR wurde auf drei verschiedenen \textit{BAM} Dateien ausgeführt, um damit
-anschießend die \textit{RPKM} Werte zu berechnen. Zudem wird die \textit{JAR} anhand ihrer Laufzeit und
+anschließend die \textit{RPKM} Werte zu berechnen. Zudem wird die \textit{JAR} anhand ihrer Laufzeit und
 Korrektheit analysiert.
 
 \end{abstract}
 
+\newpage
+\tableofcontents
 \newpage
 
 
@@ -63,7 +62,7 @@ Korrektheit analysiert.
 
 % ------------------------------------------------------------------------------
 % ------------------------------------------------------------------------------
-\section{RNA-seq}
+\section{RNA-seq}\label{sec:inro}
 Die Bezeichnung \textit{RNA-seq} bezieht sich auf ein bestimmtes Sequenzierprotokoll der Bioinformatik bei dem
 möglichst alle exprimierten Transkripte mehrerer Samples mittels Hochdurchsatz-sequenziergeräten wie
 \textit{Illumina} verarbeitet und die resultierenden \textit{Reads} in Ausgabe Dateien abgespeichert werden.
@@ -79,7 +78,7 @@ Fragmente gemacht, dann wird das Fragment, \textbf{vereinfacht gesagt}, auf der 
 die umgedrehten Fragmente jeweils das Komplement ihres ursprünglichen Fragments sind.
 Somit sollten die \textit{Reads} eines \textit{ReadPairs} immer auf entgegengesetzte Stränge \textit{("+"/"-")}
 \textit{"mappen"}. Ist bei einem Sequenzierexperiment die Ausgangskonfiguration der Fragmente bekannt, so handelt 
-es sich um ein \textit{strand specific} Experiment und man kann allen
+es sich um ein \textit{strangspezifisches} Experiment und man kann allen
 \textit{Reads} einem festen Strang zuordnen, je nach dem, ob das Fragment in der Anfangskonfiguration
 vom \textit{"-"} oder vom \textit{"+"} Strang kam.
 Ein \textit{Mapper} würde nun solche \textit{ReadPairs} an einem \textit{Referenzgenom} \textit{mappen}
@@ -103,6 +102,18 @@ Falls die Strangrichtung nicht angegeben ist, werden für beide \textit{Reads} j
 Die \textit{-lengths} Option wird für die Berechnung der \textit{RPKM} Werte benötigt. 
 Ist diese Option gesetzt, so werden die für die Längennormalisierung benötigte Genlängen der kombinierten Exons jedes
 Gens berechnet und in einer \textit{<tsv>} Datei gespeichert.
+\begin{table}[htpb]
+    \centering
+    \caption{Übersicht der verwendeten \textit{BAM} Dateien}
+    \label{tab:baminfo}
+\begin{tabular}{r|c|c|c}
+    \textbf{Spezies}   & \textbf{BAM} & \textbf{GTF} & \textbf{frstrand}\\ \hline
+    Homo Sapiens & ebna\_hisat &GRCh37.75 & "+"/"true" \\
+     Homo Sapiens & hes\_star & GRCh37.75 & "-"/"false"\\
+     Hefe &  nookaew\_cm & R64-1-1.75 & $\times$ \\
+\end{tabular}
+\end{table}
+
 \subsection{Logik}
 \subsubsection{Erstellen der ReadPair Objekte}
 
@@ -118,10 +129,9 @@ die \textit{Reads} jeweils nach \textit{forward} und \textit{reverse} kategorisi
 Zusätzlich werden die \textit{AlignmentBlocks} beider Reads zu einem gemeinsamen \textit{Regionvector meltedBlocks} und
 zwei einzelnen \textit{Regionvectors} (\textit{regionVecFw}, \textit{regionVecRw}) verschmolzen.
 Dies ist notwendig für die anschlie\ss enden Berechnungen und fängt einige \textit{Edge Cases} ab.
-Hat ein \textit{Reads} z.B. $b_{1}, b_{2} \in AlignmentBlocks$ und $b_{1}.\text{end} == b_{2}.\text{start - 1}$,
-so werden $b_{1}, b_{2} \rightarrow_{melt()} b_{neu}$, mit $b_{neu}.\text{start} == b_{1}.\text{start} \land b_{neu}.\text{end} == b_{2}.\text{end}$
+Hat ein \textit{ReadPair} $R$ z.B. $b_{1} \in \textit{regionVecFw}, b_{2} \in \textit{regionVecRw}$ und $b_{1}.\textit{end} == b_{2}.\textit{start - X}, X > 0$,
+so werden diese Blöcke verschmolzen zu: $b_{1}, b_{2} \rightarrow_{melt()} b_{neu}$, mit $b_{neu}.\textit{start} == b_{1}.\textit{start} \land b_{neu}.\textit{end} == b_{2}.\textit{end}$.
 \newpage
-
 \subsubsection{Berechnung der ReadPair Attribute}
 Als erstes werden die \textit{igenes} und \textit{cgenes} berechnet:
 \begin{enumerate}
@@ -161,7 +171,7 @@ Nach dem Aufruf von \textit{getNsplit()} wird bei einem \textit{return value} vo
 \textit{"split-inconsistent"} vermerkt und in die Ausgabedatei übernommen, ansonsten wird die Grö\ss e der
 Menge \textit{iRegions} in der Variable \textit{nsplit} gespeichert und das \textit{ReadPair} weiter prozessiert.
 \newpage
-Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert \ref{fig:-figures-ReadAnnotation-png}:
+Als nächstes wird das \textit{ReadPair} anhand drei Kategorien annotiert (Abbildung\ref{fig:-figures-ReadAnnotation-png}):
 \begin{figure}[htpb]
     \centering
     \includegraphics[width=0.95\textwidth]{./figures/ReadAnnotation.png}
@@ -179,17 +189,17 @@ Hierbei wird über alle Gene die das \textit{ReadPair} inkludieren iteriert und 
 wobei $X1$ der \textit{Alignmentstart} und $X2$ das \textit{Alignmentende} des momentanen \textit{Reads} ist.
 Falls beide ausgeschnittenen \textit{Regionvectors} aus dem Transkript gleich der geschmolzenen \textit{Regionvectors} der 
 \textit{Reads} entsprechen, ist das \textit{ReadPair} \textit{\textbf{Transcriptomic}} und das entsprechende Transkript
-wird zusammen mit dem Gen in die Lösungsmenge genommen.
+wird zusammen mit dem Gen in die Lösungsmenge genommen. 
 
 Für die \textit{\textbf{Merged}} Kategorie reicht es, wenn die \textit{Regionvectors} der \textit{Reads} in dem geschmolzenen
 Transkriptom eines Gens enthalten sind (siehe Abbildung \ref{fig:-figures-ReadAnnotation-png}). 
-Das geschmolzene Transkriptom wird im Algorithmus \ref{alg:melt} berechnet und besteht aus allen annotierten Exons 
+Das geschmolzene Transkriptom wird in Algorithmus \ref{alg:melt} berechnet und besteht aus allen annotierten Exons 
 eines Gens. Wenn ein \textit{ReadPair} dieser Kategorie zugeteilt wird, wird das Gen in einer separaten Lösungsmenge
 gespeichert. Falls die oberen zwei Ansätze beide nicht zutreffen, so handelt es sich um ein \textit{\textbf{Intronic}}
 \textit{ReadPair}.
 
 
-\begin{algorithm}[!tbp]
+\begin{algorithm}[H]
 \caption{Melt Exons into Regions}\label{alg:melt}
 \begin{algorithmic}[1]
 \State \textbf{Input:} \text{transcriptList} (list of transcripts containing exons)
@@ -220,98 +230,151 @@ gespeichert. Falls die oberen zwei Ansätze beide nicht zutreffen, so handelt es
 \end{algorithmic}
 \end{algorithm}
 
-Nach der Regions-Annotation wird der \textit{gcount} geupdated mit der Anzahl an Genen der 
-plausibelsten Kategorie. Die mismatches 
+Nach der Regions-Annotation wird der \textit{gcount} mit der Anzahl an annotierten Genen der 
+plausibelsten Kategorie überschrieben. Als nächstes überprüft die \textit{JAR} die Anzahl an 
+\textit{mismatches} der alignierten \textit{Reads} und die Anzahl an \textit{clipped bases}. 
+\textit{Clipping} bedeutet, dass ein Teil des \textit{Reads} (entweder am Anfang oder am Ende) nicht 
+an das \textit{Referenzgenom} aligniert werden können. Das kann mehrere Gründe haben,
+z.B. kann an dem Transkript noch der \textit{Poly-A Schwanz} angebracht gewesen sein. Wenn ein
+Fragment den \textit{Poly-A Schwanz} inkludiert und dieser mit sequenziert wird, so lässt sich der
+Teil des \textit{Reads} nicht mehr sinnvoll \textit{mappen}.
+Die Anzahl von \textit{mismatches} und \textit{clipping} sind bereits in dem \textit{Read} vermerkt
+und werden lediglich für das \textit{ReadPair} aufsummiert.
 
+Ab hier wird angefangen das Ergebnis korrekt zu formatieren.
+\begin{enumerate}
+    \item Falls \textit{cgenes == 0} wird die \textit{gdist} mit in das Ergebnis geschrieben.
+      Wenn es sich um ein \textit{Strangpositives} oder \textit{negatives} handelt wird 
+      zusätzlich auf dem \textit{Gegenstrang} nach inkludierenden Genen gesucht und bei
+      einem Ergebnis grö\ss er 0 wird der Eintrag mit \textit{"antisense:true"} vermerkt.
+    \item Falls \textit{cgenes > 0} wird \textit{cgenes} und die Regions-Annotation in das
+        Ergebnis übernommen.
+\end{enumerate}
+Als letztes wird in beiden Fällen noch der \textit{pcr-index} berechnet und mit in das Ergebnis geschrieben.
+Der \textit{pcr-index} speichert wie of wir ein \textit{ReadPair} bereits gesehen haben.
+Wie in \ref{sec:inro} beschrieben, werden die Fragmente auf der \textit{Flow Zelle} zuerst durch \textit{PCR}
+amplifiziert. Dieses Protokoll garantiert nicht eine gleichmä\ss ig starke Amplifikation über allen
+Fragmenten. Viel mehr kommt es zu starken Diskrepanzen zwischen der Häufigkeit der einzelnen Fragmente. 
+Der \textit{pcr-index} benutzt die \textit{meltedBlocks} der \textit{ReadPairs} als eindeutige Erkennungssignatur 
+und zählt wie oft ein \textit{ReadPair} bereits vorgekommen ist.
 
-% \begin{algorithm}[!htbp]
-% \caption{cut(int X1, int X2)}\label{alg:cut}
-% \begin{algorithmic}[1]
-% \State \textbf{Input:} X1, X2
-% \State cutRegions $\gets \{\}$
-% \For{each exon in exonList}
-%
-%     \If{$X1 \geq \text{exon.start}$ \textbf{and} $X1 \leq \text{exon.stop}$ \textbf{and} $X2 \geq \text{exon.start}$ \textbf{and} $X2 \leq \text{exon.stop}$}
-%         \State cutRegions.add(Region(X1, X2)) \Comment{Completely contained}
-%         \State \textbf{break}
-%     \ElsIf{$X1 \geq \text{exon.start}$ \textbf{and} $X1 \leq \text{exon.stop}$}
-%         \State cutRegions.add(Region(X1, exon.stop)) \Comment{Partial overlap starting from X1}
-%     \ElsIf{$X1 \leq \text{exon.start}$ \textbf{and} $X2 \geq \text{exon.stop}$}
-%         \State cutRegions.add(Region(exon.start, exon.stop)) \Comment{Exon completely covered}
-%     \ElsIf{$X2 \geq \text{exon.start}$ \textbf{and} $X2 \leq \text{exon.stop}$}
-%         \State cutRegions.add(Region(exon.start, X2)) \Comment{Partial overlap ending at X2}
-%         \State \textbf{break}
-%     \EndIf
-% \EndFor
-% \State \Return cutRegions \Comment{Return the list of cut regions}
-% \end{algorithmic}
-% \end{algorithm}
+Das Ergebnis wir mit einem \textit{BufferedWriter} in die Ergebnisdatei geschrieben und es wird mit dem nächsten 
+\textit{ReadPair} weiter gemacht.
 
+\subsubsection{Reduktion der Heap Benutzung}
+Die \textit{Reads} innerhalb der \textit{BAM} sind nach Startposition sortiert. 
+Dies lässt sich ausnutzen um die Arbeitsspeichernutzung zu reduzieren. Sobald
+ein neues Chromosom in der \textit{BAM} Datei erreicht ist, wird die \textit{seenEntries} \textit{HashMap}
+geleert. Zusätzlich wird der zu dem alten Chromosom zugehörige \textit{IntervalTree} mit dessen 
+Genen gelöscht und der \textit{pcr-index} ebenfalls neu initialisiert.
+\subsection{Korrektheit}
 
-\subsection{Laufzeit}
+\section{Ergebnisse}
+Für die drei vorgegebenen \textit{BAM} Dateien  wurden die \textit{RPKM} Werte berechnet
+und in Abbildung \ref{fig:density} aufgetragen. Dafür wurde folgende Formel verwendet:
+\[
+    RPKM = \frac{R_{G}}{\frac{G_{L}}{1000} \cdot S}
+\]
+Dabei ist $R_{G}$ die Anzahl an \textit{Reads} deren Regions-Annotation auf $G$ verweist,
+$G_{L}$ ist die Länge der aufsummierten geschmolzenen Exons des Gens $G$ und $S$ ist der
+Skalierungsfaktor $\Big(\frac{|R_{total}|}{1000000}\Big)$.
+
 \begin{figure}[htpb]
     \centering
-    \includegraphics[width=0.9\textwidth]{./plots/times_bam.jpg}
-    \caption{Laufzeit der JAR auf den 3 vorgegebenen \textit{BAMs} in Sekunden verglichen mit dem \textit{BAM} Volumen in \textit{MB} }
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./plots/hes_star/Plots/rpkm_density.png}
+    \end{minipage}%
+    \hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./plots/ebna_hisat/Plots/rpkm_density.png}
+    \end{minipage}%
+    \hfill
+    \begin{minipage}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./plots/nookaew_cm/Plots/rpkm_density.png}
+    \end{minipage}
+    \caption{RPKM Verteilung der Gene per Sample. Dabei wird zwischen \textit{All Reads} und \textit{PCR unique Reads} unteschieden.
+    \textit{All Reads} inkludiert alle \textit{ReadPairs} die eine Regions-Annotation besitzen. Bei \textit{PCR unique Reads} 
+    werden nur \textit{ReadPairs} mit \textit{pcr-index = 0} berücksichtigt.}
+    \label{fig:density}
+\end{figure}
+
+\begin{figure}[htpb]
+    \centering
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./plots/ebna_hisat/Plots/rpkm_mplot.png}
+    \end{minipage}
+    \hfill
+    \begin{minipage}{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{./plots/nookaew_cm/Plots/rpkm_mplot.png}
+    \end{minipage}
+    \caption{}
+\end{figure}
+
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_mplot.png}
+    \caption{}
+    \label{fig:-plots-hes_star-Plots-rpkm_mplot-png}
+\end{figure}
+
+\subsection{Laufzeit}\label{sec:laufzeit}
+Die Komplexität der \textit{JAR} ist linear in der Anzahl an Einträgen der \textit{BAM} Datei und der \textit{GTF}-Datei,
+wobei das Einlesen der \textit{GTF-Datei}, bei gro\ss en \textit{BAM} Dateien,  nur einen Bruchteil $G$ der Gesamtkosten ausmacht.
+Im worst case sind alle \textit{Reads} in einer \textit{BAM}-Datei mit $R$ vielen Einträgen valide. Somit gibt es insgesamt 
+$\frac{R}{2}$ viele \textit{ReadPairs} welche im worst case alle \textit{genic} sind, d.h eine Regions-Annotation haben.
+Für jeden dieser \textit{ReadPairs} kostet die gesamte Annotation $K$ viel Aufwand, wobei dieser Aufwand konstant ist.
+Somit beträgt die Laufzeit im worst case:
+\[
+    \mathcal{O}(G + R + \frac{R}{2} \cdot K) \in \mathcal{O}(G + 2 \cdot R \cdot K) \in \mathcal{O}(G+R) \in \mathcal{O}(R)
+.\]
+Da $G <<< R$ für gro\ss e \textit{BAM} Dateien.
+\subsection{Benchmarking}
+Die in \ref{sec:laufzeit} theoretisch bestimmte Laufzeit spiegelt sich in Abbildung \ref{fig:-plots-times_bam-jpg} wieder.
+Wenn man zusätzlich die Anzahl an annotierten \textit{ReadPairs} in Tabelle \ref{tab:amount} betrachtet, lässt sich grob 
+abschätzen, dass die \textit{JAR} pro $20$ Mio \textit{ReadPairs} ca. $200s$ braucht. Sie skaliert sogar etwas besser
+für noch grö\ss ere Dateien, denn für $>46$ Mio \textit{ReadPairs} in der \textit{ebna\_hisat} Datei benötigt sie 
+unter $400s$.
+
+\begin{figure}[htpb]
+    \centering
+    \includegraphics[width=0.7\textwidth]{./plots/times_bam.jpg}
+    \caption{Laufzeit der JAR auf den 3 vorgegebenen \textit{BAMs} in Sekunden verglichen mit dem \textit{BAM} Volumen in \textit{MB}. 
+    Die Ausführung der JAR erfolgte auf folgender Hardware (CiP Rechner): Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz mit 6 Kernen (12 Threads), 12 MB L3-Cache, und einer RAM-Limitation von 10 GB (-Xmx10g). }
     \label{fig:-plots-times_bam-jpg}
 \end{figure}
-\subsection{Korrektheit}
-\subsection{Benchmarking}
-\section{Ergebnisse}
 
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_mplot.png}
-%     \caption{}
-%     \label{fig:-plots-hes_star-Plots-rpkm_mplot-png}
-% \end{figure}
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_hist.png}
-%     \caption{}
-%     \label{fig:-plots-hes_star-Plots-rpkm_hplot-png}
-% \end{figure}
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/ebna_hisat/Plots/rpkm_hist.png}
-%     \caption{}
-%     \label{fig:-plots-ebna_hisat-Plots-rpkm_hplot-png}
-% \end{figure}
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/ebna_hisat/Plots/rpkm_mplot.png}
-%     \caption{}
-%     \label{fig:-plots-ebna_hisat-Plots-rpkm_mplot-png}
-% \end{figure}
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/nookaew_cm/Plots/rpkm_hist.png}
-%     \caption{}
-%     \label{fig:-plots-nookaew_cm-Plots-rpkm_hplot-png}
-% \end{figure}
-% \begin{figure}[htpb]
-%     \centering
-%     \includegraphics[width=0.85\textwidth]{./plots/nookaew_cm/Plots/rpkm_mplot.png}
-%     \caption{}
-%     \label{fig:-plots-nookaew_cm-Plots-rpkm_mplot-png}
-% \end{figure}
+\begin{table}[htpb]
+    \centering
+    \caption{Anzahl an annotierten \textit{ReadPairs} per \textit{BAM} Datei}
+    \label{tab:amount}
+
+    \begin{tabular}{r|l}
+        \textbf{BAM} & \textbf{Total \textit{ReadPairs}} \\ \hline
+          ebna\_hisat   & 46536090 \\
+          hes\_star    & 20098529 \\
+          nookaew\_cm    &  5054624 \\
+    \end{tabular}
+\end{table}
+
+
+
 
 
 
 % ------------------------------------------------------------------------------
+\newpage
 \printbibliography
 % ------------------------------------------------------------------------------
 
 
 % ------------------------------------------------------------------------------
-\newpage~\appendix
+% \newpage~\appendix
 % ------------------------------------------------------------------------------
-
-\section{Appendix Section}
-
-hm 
-
-Text goes here
 
 
 
