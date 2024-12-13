@@ -22,9 +22,9 @@ def calc_rpkm(reads: str, gene_lengths: dict, total_reads: int):
                 last_gene_name = gene_name
                 read_counter_per_gene += 1
             else:
-                RPKM = read_counter_per_gene / ( (gene_lengths[gene_name][0] / 1000) * per_million_scaling_factor)
-                print(f"{gene_name}\t{RPKM}\t{gene_lengths[gene_name][1].strip("\n")}")
-                # print(f"{last_gene_name}: RPKM = {read_counter_per_gene} / (({gene_lengths[gene_name][0]} / 1000) * {per_million_scaling_factor}) = {RPKM}")
+                RPKM = read_counter_per_gene / ( (gene_lengths[last_gene_name][0] / 1000) * per_million_scaling_factor)
+                print(f"{last_gene_name}\t{RPKM}\t{gene_lengths[last_gene_name][1].strip("\n")}")
+                # print(f"{last_gene_name}: RPKM = {read_counter_per_gene} / (({gene_lengths[last_gene_name][0]} / 1000) * {per_million_scaling_factor}) = {RPKM}")
                 
                 read_counter_per_gene = 1  # reset read count
                 last_gene_name = gene_name
