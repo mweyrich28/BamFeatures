@@ -3,7 +3,7 @@
 \usepackage{paper,math}
 \usepackage[margin=1in]{geometry}
 \addbibresource{references.bib}
-\usepackage{xcolor}  % To define colors like mygr
+\usepackage[table]{xcolor}  % To define colors like mygr
 \usepackage[most]{tcolorbox}  % For colored boxes
 \usepackage{tikz} 
 \usepackage{algorithm}% http://ctan.org/pkg/algorithms
@@ -93,7 +93,7 @@ Usage:
     java -jar bam.jar -bam <bamPath> -o <outputPath> -gtf <gtfPath> \\
                       [-frstrand <true/false>] [-lengths]
 \end{verbatim*}
-\subsection{Argumente}
+\section{Argumente}\label{sec:argumente}
 Zusätzlich zu den vorausgesetzten Argumenten (\textit{-bam}, \textit{-o}, \textit{-gtf}) können noch \textit{-frstrand} und
 \textit{-lengths} angegeben werden. 
 Bei einem Strangpositiven Experiment (\textit{-frstrand true}) ist der forward \textit{Read} auf dem \textit{"+"} und der reverse \textit{Read} auf dem
@@ -267,7 +267,7 @@ Dies lässt sich ausnutzen um die Arbeitsspeichernutzung zu reduzieren. Sobald
 ein neues Chromosom in der \textit{BAM} Datei erreicht ist, wird die \textit{seenEntries} \textit{HashMap}
 geleert. Zusätzlich wird der zu dem alten Chromosom zugehörige \textit{IntervalTree} mit dessen 
 Genen gelöscht und der \textit{pcr-index} ebenfalls neu initialisiert.
-\subsection{Korrektheit}
+
 
 \section{Ergebnisse}
 Für die drei vorgegebenen \textit{BAM} Dateien  wurden die \textit{RPKM} Werte berechnet
@@ -277,7 +277,33 @@ und in Abbildung \ref{fig:density} aufgetragen. Dafür wurde folgende Formel ver
 \]
 Dabei ist $R_{G}$ die Anzahl an \textit{Reads} deren Regions-Annotation auf $G$ verweist,
 $G_{L}$ ist die Länge der aufsummierten geschmolzenen Exons des Gens $G$ und $S$ ist der
-Skalierungsfaktor $\Big(\frac{|R_{total}|}{1000000}\Big)$.
+Skalierungsfaktor $\Big(\frac{|R_{total}|}{1000000}\Big)$. Zum Reproduzieren der Ergebnisse 
+wird folgendes \textit{Bash Skript} zur Verfügung gestellt:
+\begin{verbatim*}
+    bash rpkm.sh <sample.annot> <sample.gene_lengths>
+\end{verbatim*}
+Hierbei ist die \textit{<sample.gene\_lengths>} Datei die Tabelle die sich mit der \textit{-lengths} Option der \textit{JAR} in Abschnitt \ref{sec:argumente}
+erstellen lässt.
+
+Die zwei menschlichen Samples \textit{hes\_star} und \textit{ebna\_hisat} weisen einen ähnlichen Wertebereich  zwischen 
+0.001 und 100 auf, wobei die Verteilung etwas unterschiedlich ist was unter anderem daran liegt, dass \textit{ebna\_hisat} mehr als
+doppelt so viele annotierte \textit{ReadPairs} enthält als \textit{hes\_star}. Zudem hat \textit{hes\_star} viel extremere 
+\textit{outlier} als \textit{ebna\_hisat} (vor allem zu sehen in Abbildungen \ref{fig:scatter-small} und \ref{fig:scatter-log}).
+In allen drei Verteilungen in Abbildung \ref{fig:density} ist ebenfalls die Korrektur der \textit{PCR Unique Reads} 
+klar als \textit{Verschiebung} nach rechts erkennbar, denn der \textit{Skalierungsfaktor} $S$ wird durch das
+entfernen der \textit{PCR} Artefakte kleiner, wodurch der \textit{RPKM} Wert wiederum grö\ss er erscheint.
+
+Die Ergebnisse entsprechen ebenfalls den Erwartungen, denn die meisten Gene sollten in der Zelle inaktiviert
+sein, während nur ein Bruchteil stark exprimiert vorliegt.
+In der Hefe sind vor allem Gene wie \textit{"YGR192C"}, \textit{"YKL060C"} und \textit{"YHR174W"} (Abbildung \ref{fig:density} Plot rechts)
+hoch exprimiert, welche jeweils wichtige Enzyme der \textit{Glykolyse} herstellen (\textit{Glycerinaldehyd-3-Dehydrogenase}, \textit{Fruktosephosphat-1,6-Bisphosphatase} und
+\textit{Enolase}).
+
+In dem \textit{ebna\_hisat}-Sample codiert \textit{"ENSG00000210082"} mit dem höchsten 
+\textit{RPKM}-Wert die mitochondriale \textit{16sRNA}, welche die große Untereinheit 
+des mitochondrialen \textit{Ribosoms} bildet, während im \textit{hes\_star}-Sample 
+\textit{"ENSG00000249335"} als \textit{LincRNA} identifiziert wurde, die an der Genregulation 
+beteiligt ist.
 
 \begin{figure}[htpb]
     \centering
@@ -295,7 +321,7 @@ Skalierungsfaktor $\Big(\frac{|R_{total}|}{1000000}\Big)$.
         \centering
         \includegraphics[width=\textwidth]{./plots/nookaew_cm/Plots/rpkm_density.png}
     \end{minipage}
-    \caption{RPKM Verteilung der Gene per Sample. Dabei wird zwischen \textit{All Reads} und \textit{PCR unique Reads} unteschieden.
+    \caption{RPKM Verteilung der Gene per Sample. Dabei wird zwischen \textit{All Reads} und \textit{PCR unique Reads} unterschieden.
     \textit{All Reads} inkludiert alle \textit{ReadPairs} die eine Regions-Annotation besitzen. Bei \textit{PCR unique Reads} 
     werden nur \textit{ReadPairs} mit \textit{pcr-index = 0} berücksichtigt.}
     \label{fig:density}
@@ -303,24 +329,28 @@ Skalierungsfaktor $\Big(\frac{|R_{total}|}{1000000}\Big)$.
 
 \begin{figure}[htpb]
     \centering
-    \begin{minipage}{0.48\textwidth}
+    \begin{minipage}{0.49\textwidth}
         \centering
         \includegraphics[width=\textwidth]{./plots/ebna_hisat/Plots/rpkm_mplot.png}
     \end{minipage}
     \hfill
-    \begin{minipage}{0.48\textwidth}
+    \begin{minipage}{0.49\textwidth}
         \centering
         \includegraphics[width=\textwidth]{./plots/nookaew_cm/Plots/rpkm_mplot.png}
     \end{minipage}
-    \caption{}
+    \caption{RPKM Werte aufgeteilt nach Chromosomen und Vergleich der \textit{All Reads} mit \textit{PCR Unique Reads} . Die Top 10 \textit{outlier} sind
+    jeweils mit Rot markiert.}
+    \label{fig:scatter-small}
 \end{figure}
 
 \begin{figure}[htpb]
     \centering
     \includegraphics[width=0.85\textwidth]{./plots/hes_star/Plots/rpkm_mplot.png}
-    \caption{}
-    \label{fig:-plots-hes_star-Plots-rpkm_mplot-png}
+    \caption{RPKM Werte aufgeteilt nach Chromosomen und Vergleich der \textit{All Reads} mit \textit{PCR Unique Reads} . Die Top 10 \textit{outlier} sind
+    jeweils mit Rot markiert. Hier ist zusehen wie stark ein PCR amplifiziertes Fragment (\textit{"ENSG00000251705"}) das gesamt Bild verzerren kann.}
+    \label{fig:scatter-log}
 \end{figure}
+\newpage
 
 \subsection{Laufzeit}\label{sec:laufzeit}
 Die Komplexität der \textit{JAR} ist linear in der Anzahl an Einträgen der \textit{BAM} Datei und der \textit{GTF}-Datei,
@@ -340,7 +370,7 @@ abschätzen, dass die \textit{JAR} pro $20$ Mio \textit{ReadPairs} ca. $200s$ br
 für noch grö\ss ere Dateien, denn für $>46$ Mio \textit{ReadPairs} in der \textit{ebna\_hisat} Datei benötigt sie 
 unter $400s$.
 
-\begin{figure}[htpb]
+\begin{figure}[tpb]
     \centering
     \includegraphics[width=0.7\textwidth]{./plots/times_bam.jpg}
     \caption{Laufzeit der JAR auf den 3 vorgegebenen \textit{BAMs} in Sekunden verglichen mit dem \textit{BAM} Volumen in \textit{MB}. 
@@ -348,18 +378,76 @@ unter $400s$.
     \label{fig:-plots-times_bam-jpg}
 \end{figure}
 
-\begin{table}[htpb]
+\begin{table}[tpb]
     \centering
     \caption{Anzahl an annotierten \textit{ReadPairs} per \textit{BAM} Datei}
     \label{tab:amount}
 
-    \begin{tabular}{r|l}
+    \begin{tabular}{l|r}
         \textbf{BAM} & \textbf{Total \textit{ReadPairs}} \\ \hline
           ebna\_hisat   & 46536090 \\
           hes\_star    & 20098529 \\
           nookaew\_cm    &  5054624 \\
     \end{tabular}
 \end{table}
+
+\subsection{Korrektheit}
+Für die Korrektheit wurden die \textit{BAM} Dateien mit einem externen Tool names \textit{featureCounts} (\cite{liao2014featurecounts}) analysiert.
+Das Tool berechnet die Anzahl an alignierten \textit{ReadPairs} pro Gen:
+\begin{verbatim*}
+featureCounts -p --countReadPairs -a Saccharomyces_cerevisiae.R64-1-1.75.gtf 
+-o counts.txt -t exon -g gene_id -T 4 nookaew_cm.bam                                                                                                 
+\end{verbatim*}
+Vergleichen wir den Output  mit unserem Ergebnis, so fällt auf, dass ein einige Unterschiede zwischen ihnen gibt.
+Tabelle \ref{tab:comp} zeigt jeweils die Top 10 (rohen und nicht nach \textit{pcr-index} normalisierten) \textit{ReadPair Counts} pro Gen der \textit{nookaew\_cm BAM} Datei. Gene die in beiden 
+Ergebnissen vorkommen sind jeweils farbig markiert. 
+
+Es fällt auf, dass die zwei verschiedenen Programme in
+sechs Genen (unterstrichen) nicht einig sind (abgesehen von den \textit{ReadPair Counts}).
+Bei den \textit{ReadPair Counts} scheint es bei allen Genen (au\ss er bei \textcolor{blue}{YHR174W} und \textcolor{cyan}{YGR192C}) so, als würde die \textit{JAR} immer 
+etwas weniger (3000-5000) \textit{ReadPairs} zählen  als das \textit{featureCounts} Tool.
+Bei  \textcolor{blue}{YHR174W} und \textcolor{cyan}{YGR192C} wiederum scheint es als hätte die 
+\textit{JAR} doppelt so viele \textit{ReadPairs} gezählt.
+
+Die Unterschiede können verschiedenen Gründe haben, die Daten lassen vermuten, dass die \textit{JAR} etwas strenger filtert, da sie meist
+weniger \textit{ReadPairs} zählt als das Programm \textit{featureCounts}.
+Zudem könnte eine unterschiedliche Behandlung von Mehrfachausrichtungen (\textit{Multimapping Reads}) oder der 
+Umgang mit unzuverlässigen Alignments zu den Abweichungen führen. 
+Diese Unterschiede können auch durch die Art der Annotationen, die im jeweiligen Tool verwendet werden, beeinflusst sein.
+
+Abgesehen von den zwei zu hoch gezählten Genen \textcolor{blue}{YHR174W} und \textcolor{cyan}{YGR192C}
+und den sechs verschiedenen Genen, sind die Trends und der Wertebereich sehr ähnlich, was
+darauf hindeutet, dass beide Tools grundsätzlich ähnliche Ergebnisse liefern 
+und eine vergleichbare Leistung bei der Zählung der \textit{ReadPairs} aufweisen.
+
+
+
+\begin{table}[htpb]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{|>{\bfseries}r|l|>{\bfseries}r|l|}
+\hline
+\rowcolor{gray!20} \multicolumn{2}{|c|}{\textit{JAR}} & \multicolumn{2}{c|}{\textit{featureCounts}} \\
+\hline
+\textbf{Gen} & \textbf{ReadPair Count} & \textbf{Gen} & \textbf{ReadPair Count} \\
+\hline
+\textcolor{cyan}{YGR192C} & 60177 & \textcolor{violet}{YKL060C} & 55803 \\
+\underline{YBR118W}                  & 54179 & \textcolor{pink!90}{YLR044C} & 54007 \\
+\textcolor{violet}{YKL060C} & 50011 & \textcolor{purple}{YGL008C} & 46442 \\
+\textcolor{pink!90}{YLR044C} & 49344 & \textcolor{cyan}{YGR192C}                 & 33377 \\
+\textcolor{blue}{YHR174W} & 45318 & \textcolor{orange}{YOL086C} & 32462 \\
+\textcolor{purple}{YGL008C} & 39451 & \textcolor{blue!40}{YLR249W} & 27077 \\
+\textcolor{orange}{YOL086C} & 28881 & \underline{YOR063W}                 & 25241 \\
+\underline{YCR012W}                  & 26885 & \underline{YLR167W}                 & 23872 \\
+    \underline{YKL152C}  & 25221 & \underline{YER091C}                 & 23493 \\
+\textcolor{blue!40}{YLR249W} & 24588 & \textcolor{blue}{YHR174W} & 21728 \\
+\hline
+\end{tabular}
+\caption{Top 10 JAR und featureCounts \textit{ReadPair Counts} pro Gen, Gene die in beiden Ergebnismengen vorkommen sind farbig markiert.}
+\label{tab:comp}
+\end{table}
+
 
 
 
