@@ -13,19 +13,19 @@ See [Report](./report/bamfeatures.pdf)
 ## Usage
 ```sh
 java -jar bam.jar 
-          -bam <bamPath> 
-          -o <outputPath> 
-          -gtf <gtfPath> 
+          -bam <bamPath.bam> 
+          -o <outputPath.annot> 
+          -gtf <gtfPath.gtf> 
           [-frstrand <true/false>] 
           [-lengths]
 ```
 
 ## Used Bam FIles
-| Spezies       | BAM         | GTF        | frstrand     |
+| Species       | BAM         | GTF        | frstrand     |
 | ------------- | ----------- | ---------- | ------------ |
 | Homo Sapiens  | ebna_hisat  | GRCh37.75  | "+"/"true"   |
 | Homo Sapiens  | hes_star    | GRCh37.75  | "-"/"false"  |
-| Hefe          | nookaew_cm  | R64-1-1.75 | $\cross$     |
+| Yeast         | nookaew_cm  | R64-1-1.75 | $\cross$     |
 
 
 ## Read Pair Classification
@@ -37,3 +37,12 @@ java -jar bam.jar
 
 ## Runtime
 ![Runtime](./report/plots/times_bam.jpg)
+
+## RPKM Calculation
+```sh
+bash rpkm.sh <sample>.annot <sample>.gene_lengths.txt
+```
+
+> [!NOTE]   
+>
+> <sample>.gene_lengths.txt is generated when calling the `JAR` with the `-lengths` flag.
