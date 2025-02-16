@@ -45,4 +45,4 @@ bash rpkm.sh <sample>.annot <sample>.gene_lengths.txt
 
 > [!NOTE]   
 >
-> <sample>.gene_lengths.txt is generated when calling the `JAR` with the `-lengths` flag.
+> sample.gene_lengths.txt is generated when calling the `JAR` with the `-lengths` flag.
