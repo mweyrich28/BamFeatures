@@ -138,6 +138,7 @@ public class ReadPair {
                 .get(this.chr)
                 .get(this.frstrand)
                 .getIntervalsSpannedBy(this.alignmentStart, this.alignmentEnd, new ArrayList<>());
+
         return igenes.size();
     }
 

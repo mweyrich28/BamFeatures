@@ -25,6 +25,7 @@ public class Main {
             String st = ns.get("frstrand");
             boolean lengths = ns.getBoolean("lengths");
 
+
             Boolean strandness = null;
             if (st != null) {
                 if (st.equals("true")) {

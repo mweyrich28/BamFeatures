@@ -1,11 +1,13 @@
 package org.src;
 import augmentedTree.IntervalTree;
+import com.sun.source.tree.Tree;
 import net.sf.samtools.*;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.TreeSet;
@@ -55,7 +57,6 @@ public class BamFeatures {
                 continue;
             }
 
-
             // at this point we already have the read pair
             // get mate
             SAMRecord mate = seenEntries.get(current.getReadName());
@@ -64,7 +65,6 @@ public class BamFeatures {
 
             // append read id to sb
             StringBuilder sb = new StringBuilder(current.getReadName());
-
             int cgenes = pair.getcgenes(genome);
             int gdist = 0;
 
@@ -75,8 +75,6 @@ public class BamFeatures {
                 }
                 gdist = pair.getgdist(genome);
             }
-
-
 
             int nsplit = pair.getNsplit();
             if (nsplit == -1) {
