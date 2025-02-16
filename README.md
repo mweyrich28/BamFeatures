@@ -25,7 +25,7 @@ java -jar bam.jar
 | ------------- | ----------- | ---------- | ------------ |
 | Homo Sapiens  | ebna_hisat  | GRCh37.75  | "+"/"true"   |
 | Homo Sapiens  | hes_star    | GRCh37.75  | "-"/"false"  |
-| Yeast         | nookaew_cm  | R64-1-1.75 | $\cross$     |
+| Yeast         | nookaew_cm  | R64-1-1.75 | $\times$     |
 
 
 ## Read Pair Classification
